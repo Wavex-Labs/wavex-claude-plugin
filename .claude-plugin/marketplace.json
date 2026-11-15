@@ -8,7 +8,7 @@
     {
       "name": "wavex",
       "source": "./plugins/wavex",
-      "description": "Post a job from your Claude Code session to the WaveX automations marketplace (/wavex:wavex-post), with the WaveX MCP server."
+      "description": "Your own WaveX automations page (/wavex:wavex-shop), posting a job from your Claude Code session to the WaveX marketplace (/wavex:wavex-post), and the WaveX MCP server."
     }
   ]
 }

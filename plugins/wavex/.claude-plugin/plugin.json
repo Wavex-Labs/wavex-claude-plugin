@@ -1,7 +1,7 @@
 {
   "name": "wavex",
-  "version": "0.1.0",
-  "description": "Post a repeatable job from your Claude Code session to the WaveX automations marketplace: draft, scrub, price, confirm, submit for review.",
+  "version": "0.2.0",
+  "description": "Get your own WaveX automations page in your claude.ai account (/wavex:wavex-shop), and post a repeatable job from your Claude Code session to the WaveX marketplace: draft, scrub, price, confirm, submit for review (/wavex:wavex-post).",
   "author": {
     "name": "WaveX"
   },

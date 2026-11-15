@@ -53,7 +53,7 @@ Look back over this conversation for ONE repeatable job that worked: what went i
 | `description` | Plain text: what it does, what the buyer provides, what comes out, limits. Keep it under about 1,500 characters. |
 | `category` | One lower-case word, for example `video`, `marketing`, `sales`. |
 | `mode` | `"hosted"` (default: buyers pay credits per run, can rent it, and can buy it to run themselves) or `"own_it"` (sold only as a one-time purchase). Never `"creator_hosted"` from this command. |
-| `credit_price` | Whole number of credits per run, 1 to 10,000 (1 credit = 1 cent). Required in both modes. |
+| `credit_price` | Whole number of credits per run, 0 to 10,000 (1 credit = 1 cent). Required in both modes. 0 is a free listing, only when the creator asks for one: mode `"hosted"`, with `price_rent` and `price_own` `null` (a free listing is never rented or bought, and `own_it` is never free). |
 | `price_rent` | Whole number 1 to 1,000,000, or `null`. Hosted only. Without it the listing cannot be rented. |
 | `price_own` | Whole number 1 to 1,000,000, or `null`. Required for `own_it`. Without it the listing cannot be bought. |
 | `apps` | `[]`. A step with an `app` field must name an app listed here; this command writes prompt steps only. |
@@ -72,7 +72,9 @@ Each step: `{ "id", "kind": "prompt", "title", "prompt" }`
 
 Do not send `price_self_host`, `self_host_enabled`, `rent_days`, `compute_credits`, `status`, `creator_id` or any id. WaveX sets these: a rental lasts 30 days with up to 300 runs, and the compute cost is 5 credits per run.
 
-The first check returns these findings when a rule is broken: `name: 1 to 80 characters`, `summary: 1 to 200 characters`, `slug: lower-case words joined by hyphens`, `mode: hosted, creator_hosted or own_it`, `credit_price: 1 to 10,000 credits`, `definition: missing`, `definition.steps: at least one step`, `definition.inputs: a list`, `apps: a list`, `apps: a step uses an app that is not listed`, `text holds what looks like a key or token`, `slug: taken`. A price that is not a whole number is refused outright.
+Images: this command never sends image bytes, never calls `upload_listing_image`, and never sends `image_path`. Left out, `image_path` keeps the listing's current image. If the creator wants an image, tell them: "Add an image on your WaveX page (Post a session)."
+
+The first check returns these findings when a rule is broken: `name: 1 to 80 characters`, `summary: 1 to 200 characters`, `slug: lower-case words joined by hyphens`, `mode: hosted, creator_hosted or own_it`, `credit_price: 0 to 10,000 credits (0 makes it free)`, `a free listing is hosted or creator_hosted with no rent, own or self-host price`, `submissions: at most 5 a day`, `definition: missing`, `definition.steps: at least one step`, `definition.inputs: a list`, `apps: a list`, `apps: a step uses an app that is not listed`, `text holds what looks like a key or token`, `slug: taken`. A price that is not a whole number is refused outright.
 
 ### Check the slug before going on
 
@@ -102,11 +104,14 @@ Call `suggest_price` with `{ "run_price": <credit_price> }`. It returns `{ "rent
 - `price_rent` = R (the rental price; hosted only, `null` for `own_it`).
 - `price_own` = O ("run it yourself" means buying the automation to run in your own Claude).
 
+For a free listing (`credit_price` 0), `suggest_price` returns `{ "free": true, "rent": null, "own": null }`, and its text says the listing is free to run. Send `price_rent` and `price_own` as `null`, and mode `"hosted"`. If it refuses with `run_price must be 1 to 10,000 credits.`, free listings are not switched on yet: tell the creator so, plainly, and offer a priced listing instead.
+
 Use the creator's own figure instead only if they gave one. Then show the creator, in plain words:
 
 - name, slug, summary, description, category, mode;
 - the inputs (label, type, required, placeholder) and the steps (title and a one-line gist of each prompt);
 - prices: `credit_price` per run, `price_rent` for a 30-day rental of up to 300 runs, `price_own` to buy it;
+- for a free listing, say: "Free: 0 credits a run. It cannot be rented or bought.";
 - what they earn, worked out the way WaveX's `mkt_creator_share` does, with the compute cost of 5 credits:
   - each paid run: floor((credit_price - 5) x 0.70), never below 0;
   - each rental: floor((price_rent - 5) x 0.70);
@@ -114,6 +119,7 @@ Use the creator's own figure instead only if they gave one. Then show the creato
   - only the part a buyer pays with purchased credits counts (gifted or welcome credits earn nothing), and their own runs and purchases earn nothing. Earnings collect in their WaveX "Automation earnings" account.
   - Payout of earnings is not switched on yet. Tell the creator plainly that these earnings cannot be cashed out today.
   - Example: credit_price 50, rent 400, own 1250 earns 31 per run, 276 per rental, 1000 per purchase.
+  - A free listing earns 0: nothing per run, and it is never rented or bought. Tell the creator plainly.
 - what you removed or generalized in step 4;
 - the account it will post as (first 8 characters).
 
@@ -129,6 +135,8 @@ The result is `{ ok, level: "L0", findings, automation_id, version_id, version }
 
 - If `ok` is true: give the slug, the version number, and the status "in review". Say WaveX reviews it before it is listed: WaveX's Claude checks it against WaveX's rules (L1) and test-runs it (L2), then a person at WaveX gives final approval (L3). It is not live, and nobody can rent or buy it, until then. `get_automation` with the slug reads it back.
 - If `ok` is false: list the findings word for word, explain each in one line, and offer to fix them. After fixing, show what changed and ask "Post it to WaveX?" again before resubmitting. Resubmit at most twice; if findings remain, show them and stop.
+- If a free listing gets the finding `credit_price: 1 to 10,000 credits`: free listings are not switched on yet. Tell the creator so, plainly, and offer a priced listing instead: 1 credit or more, with `suggest_price` run again for the new price. Show the changed draft and ask "Post it to WaveX?" again before resubmitting.
+- If a finding is `submissions: at most 5 a day`: this account has sent 5 listings to review in the last 24 hours. Nothing was posted. Tell the creator to try again after 24 hours, and do not resubmit now.
 - If the call is refused: `not_signed_in` means reconnect through `/mcp` (or the claude.ai connector); `bad_input` names the field to fix; `unexpected_error` usually means a price was not a whole number or the service is busy. Nothing was posted.
 
 `slug: taken` on a new listing means another account holds that slug in a listing that is not live: pick a new slug and confirm again. If the creator says that listing is theirs, it sits under another WaveX account: follow "Find the account that owns a listing" below.
