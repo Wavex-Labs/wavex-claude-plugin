@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,8 +11,12 @@ const SERVER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'server.m
 const FAKE_KEY = 'sk_' + 'live_' + 'abcdefghijklmnop1234';
 const FAKE_JWT = 'eyJ' + 'hbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnopqrstu';
 
+const made = [];
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+
 function makeRoot() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wavex-sessions-'));
+  made.push(root);
   const proj = path.join(root, '-Users-someone-acme-video');
   fs.mkdirSync(proj);
   const lines = [
@@ -38,6 +42,45 @@ test('scrub removes keys, tokens, emails, phones, local paths and reminders', ()
 
 test('scrub leaves plain numbers and dates alone', () => {
   assert.equal(scrub('version 1794763031 on 2026-11-15'), 'version 1794763031 on 2026-11-15');
+});
+
+// Fake secrets are built from pieces so this file never holds one whole.
+const PW = 'hunter' + '2xyz';
+const gone = (s, bads) => { for (const bad of bads) assert.ok(!s.includes(bad), `left: ${bad} in ${s}`); };
+
+test('scrub: JSON-quoted secrets, plain, single-quoted and inside an escaped JSON string', () => {
+  const s = scrub(`{"password": "${PW} 9"} "api_key": "abcd${PW}" {'token': 'qw${PW}'} {\\"passwd\\": \\"es${PW}\\", \\"user\\": \\"bob\\"} {"secret":"sh${PW}"}`);
+  gone(s, [PW]);
+  assert.match(s, /\{"password": "\[redacted\]"\}/);
+  assert.match(s, /'token': '\[redacted\]'/);
+  assert.match(s, /\\"user\\": \\"bob\\"/);
+});
+
+test('scrub: env-style names with 6 or more characters', () => {
+  const s = scrub(`DB_PASS=db${PW} SECRET_KEY=sk${PW} PRIVATE_KEY=pk${PW} SMTP_PASSWORD=sm${PW} AUTH=au${PW} export DB_PASS="two ${PW}" ?pass=qs${PW}&auth=qa${PW}`);
+  gone(s, [PW]);
+  for (const name of ['DB_PASS', 'SECRET_KEY', 'PRIVATE_KEY', 'SMTP_PASSWORD', 'AUTH']) assert.ok(s.includes(`${name}=[redacted]`), name);
+  assert.equal(scrub('AUTH=abc'), 'AUTH=abc');
+});
+
+test('scrub: passwords in connection URLs', () => {
+  const s = scrub(`postgres://admin:${PW}@db.example.com:5432/app mongodb+srv://u:m${PW}@cluster0.example.net/x redis://:r${PW}@localhost:6379`);
+  gone(s, [PW, 'admin:']);
+  assert.ok(s.includes('postgres://[credentials]@db.example.com:5432/app'));
+  assert.ok(s.includes('mongodb+srv://[credentials]@cluster0.example.net/x'));
+  assert.ok(s.includes('redis://[credentials]@localhost:6379'));
+});
+
+test('scrub: sb_secret_, github_pat_, whsec_ and ya29. keys', () => {
+  const keys = ['sb_' + 'secret_' + 'AbCdEf0123456789xyz', 'github_' + 'pat_' + '11ABCDEFG0123456789_abcdefghijklmnop', 'wh' + 'sec_' + 'AbCdEfGhIjKlMnOpQrStUv012345', 'ya' + '29.' + 'a0AfH6SMBxyzABCDEFGHIJKLMNOPQRstuv'];
+  const s = scrub(keys.join(' and '));
+  gone(s, keys);
+  assert.equal(s, '[key] and [key] and [key] and [token]');
+});
+
+test('scrub keeps placeholders and prose about passwords', () => {
+  const keep = 'Fill in the password field. password={password} "password": "{password}" postgres://{user}:{password}@{host}:5432/{db} token: {{token}} DB_PASS=${DB_PASS} api_key=<your api key> The author=Shakespeare. Second pass: rendered the video.';
+  assert.equal(scrub(keep), keep);
 });
 
 test('list_sessions: newest first, title from the session, everything scrubbed, no tool results', async () => {

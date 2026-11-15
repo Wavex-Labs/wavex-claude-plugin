@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { desktopConfigPath, check, install, NAME } from './install.mjs';
+import { desktopConfigPath, check, install, pickNode, NAME } from './install.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SOURCE = path.join(HERE, 'server.mjs');
@@ -85,6 +85,79 @@ test('refuses and changes nothing: bad JSON, a non-object, bad mcpServers, missi
   assert.equal(fs.existsSync(path.dirname(gone.config)), false);
   assert.equal(install({ ...opts, nodeVersion: '16.20.0' }).reason, 'old_node');
   assert.equal(fs.existsSync(opts.config), false);
+});
+
+const modeOf = (f) => fs.statSync(f).mode & 0o777;
+
+test('keeps the settings file mode: a 0600 file stays 0600, and so does its backup', () => {
+  const { opts } = setup({ config: JSON.stringify({ mcpServers: { other: { command: 'x', env: { TOKEN: 'abc' } } } }) });
+  fs.chmodSync(opts.config, 0o600);
+  const r = install(opts);
+  assert.equal(r.changed, true);
+  assert.equal(modeOf(opts.config), 0o600);
+  assert.equal(modeOf(r.backup), 0o600);
+  assert.ok(JSON.parse(fs.readFileSync(opts.config, 'utf8')).mcpServers[NAME]);
+  assert.equal(fs.existsSync(`${opts.config}.wavex-tmp`), false);
+  fs.chmodSync(opts.config, 0o640);
+  install({ ...opts, node: '/opt/homebrew/bin/node' });
+  assert.equal(modeOf(opts.config), 0o640);
+});
+
+test('a settings path that is a link: writes the file it points to, keeps the link and the mode, and says so', () => {
+  const { opts } = setup();
+  const realDir = tmp('wavex-install-real-');
+  const real = path.join(realDir, 'claude_desktop_config.json');
+  const original = JSON.stringify({ mcpServers: { other: { command: 'x' } } });
+  fs.writeFileSync(real, original);
+  fs.chmodSync(real, 0o600);
+  fs.symlinkSync(real, opts.config);
+  const c = check(opts);
+  assert.equal(c.linked_to, fs.realpathSync(real));
+  assert.match(c.link_note, /is a link/);
+  const r = install(opts);
+  assert.equal(r.ok, true);
+  assert.equal(r.linked_to, fs.realpathSync(real));
+  assert.match(r.link_note, /file it points to/);
+  assert.equal(fs.lstatSync(opts.config).isSymbolicLink(), true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(real, 'utf8')).mcpServers, { other: { command: 'x' }, [NAME]: { command: opts.node, args: [opts.copy] } });
+  assert.equal(modeOf(real), 0o600);
+  assert.equal(fs.readFileSync(r.backup, 'utf8'), original);
+  assert.equal(check(opts).current, true);
+});
+
+test('a link to a file that is not there: refuses, names the fix, changes nothing', () => {
+  const { home, opts } = setup();
+  fs.symlinkSync(path.join(home, 'missing.json'), opts.config);
+  const r = install(opts);
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'config_link_broken');
+  assert.match(r.message, /nothing was changed.*Fix or remove that link/);
+  assert.equal(fs.lstatSync(opts.config).isSymbolicLink(), true);
+  assert.equal(fs.existsSync(opts.copy), false);
+  assert.equal(backups(opts).length, 0);
+});
+
+test('node path: a Homebrew Cellar node uses the stable link when it runs the same binary', () => {
+  const root = tmp('wavex-install-node-');
+  const cellarNode = path.join(root, 'Cellar', 'node@22', '22.1.0', 'bin', 'node');
+  fs.mkdirSync(path.dirname(cellarNode), { recursive: true });
+  fs.writeFileSync(cellarNode, '');
+  const shim = path.join(root, 'bin', 'node');
+  fs.mkdirSync(path.dirname(shim));
+  fs.symlinkSync(cellarNode, shim);
+  const other = path.join(root, 'other', 'node');
+  fs.mkdirSync(path.dirname(other));
+  fs.writeFileSync(other, '');
+  assert.deepEqual(pickNode({ execPath: cellarNode, shims: [other, shim] }), { node: shim, node_note: null });
+  const noShim = pickNode({ execPath: cellarNode, shims: [other, path.join(root, 'none', 'node')] });
+  assert.equal(noShim.node, cellarNode);
+  assert.match(noShim.node_note, /upgrade or remove that Node\.js, type \/wavex-shop again/);
+  assert.deepEqual(pickNode({ execPath: shim, shims: [shim] }), { node: shim, node_note: null });
+  const nvm = pickNode({ execPath: '/home/x/.nvm/versions/node/v22.1.0/bin/node', shims: [shim] });
+  assert.equal(nvm.node, '/home/x/.nvm/versions/node/v22.1.0/bin/node');
+  assert.match(nvm.node_note, /type \/wavex-shop again/);
+  const { opts } = setup();
+  assert.equal(check({ ...opts, node_note: noShim.node_note }).node_note, noShim.node_note);
 });
 
 test('command line: check answers JSON and changes nothing', { skip: process.platform !== 'darwin' }, () => {

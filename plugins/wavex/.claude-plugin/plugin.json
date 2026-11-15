@@ -1,6 +1,6 @@
 {
   "name": "wavex",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Get your own WaveX automations page in your claude.ai account (/wavex:wavex-shop), with an optional helper so it can list your Claude Code sessions in the Claude desktop app. Post a repeatable job from your Claude Code session to the WaveX marketplace: draft, scrub, price, confirm, submit for review (/wavex:wavex-post), or save the session privately (/wavex:wavex-post --save). Uses your claude.ai connector named wavex; the plugin adds no server to Claude Code.",
   "author": {
     "name": "WaveX"

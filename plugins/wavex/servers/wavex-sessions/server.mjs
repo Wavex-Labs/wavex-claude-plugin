@@ -17,6 +17,18 @@ const TAIL_BYTES = 384 * 1024;
 const DIGEST_CAP = 24 * 1024;
 
 // ── Scrub: secrets, contact details and local paths never leave this machine's page unredacted ──
+// A value that only names a secret ({password}, {{token}}, <password>, ${DB_PASS}, $DB_PASS, ***, [key]) stays as written.
+const PLACEHOLDER = /^(?:\{\{?\s*[\w.-]+\s*\}?\}|<[\w .-]+>|\$\{[\w.-]+\}|\$[A-Z_][A-Z0-9_]*|\*+|\.{3}|…|\[[a-z ]+\])$/;
+// Names that hold a secret: api_key, secret, token, password, passwd, private_key, with anything joined on (DB_PASSWORD, SECRET_KEY).
+const SECRET_NAME = String.raw`[A-Za-z0-9_]*(?:api[_-]?key|secret|token|passw(?:or)?d|private[_-]?key)[A-Za-z0-9_]*`;
+// Short names that hold a secret only as an env-style NAME=value: PASS, DB_PASS, PWD, AUTH, BASIC_AUTH.
+const SHORT_SECRET_NAME = String.raw`(?:[A-Za-z0-9]+_)*(?:pass|pwd|auth)(?:_[A-Za-z0-9]+)*`;
+const VALUE = String.raw`("[^"\n]*"|'[^'\n]*'|[^\s"',;&]+)`;
+const unquote = (v) => (/^(["']).*\1$/.test(v) ? v.slice(1, -1) : v);
+const redactValue = (m, name, value) => {
+  const v = unquote(value);
+  return v.length < 6 || PLACEHOLDER.test(v) ? m : `${name}=[redacted]`;
+};
 const RULES = [
   [/<system-reminder>[\s\S]*?<\/system-reminder>/g, ''],
   [/<(pasted_content|command-[a-z-]+|local-command-[a-z-]+)[^>]*>[\s\S]*?<\/\1>/g, ''],
@@ -25,12 +37,20 @@ const RULES = [
   [/\b(sk|rk|pk)_(live|test)_[A-Za-z0-9]{8,}/g, '[key]'],
   [/\bsk-[A-Za-z0-9_-]{16,}/g, '[key]'],
   [/\b(ghp|gho|ghu|ghs|github_pat)_[A-Za-z0-9_]{16,}/g, '[key]'],
+  [/\bsb_secret_[A-Za-z0-9_-]{10,}/g, '[key]'],
+  [/\bwhsec_[A-Za-z0-9+/=]{16,}/g, '[key]'],
+  [/\bya29\.[A-Za-z0-9_-]{20,}/g, '[token]'],
   [/\bxox[abposr]-[A-Za-z0-9-]{10,}/g, '[key]'],
   [/\bAKIA[0-9A-Z]{16}\b/g, '[key]'],
   [/\bAIza[0-9A-Za-z_-]{30,}/g, '[key]'],
   [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{12,}/gi, '$1 [token]'],
-  [/\b([A-Za-z0-9_]*(?:api[_-]?key|secret|token|password|passwd)[A-Za-z0-9_]*)\s*[:=]\s*["']?[^\s"',;]{6,}/gi, '$1=[redacted]'],
-  [/\b[a-z]+:\/\/[^\s/:@]+:[^\s/@]+@/gi, 'scheme://[credentials]@'],
+  // JSON or code with a quoted name: {"password": "..."}, "api_key": "...", 'token': '...', and the same inside an escaped JSON string.
+  [new RegExp(String.raw`(\\?["'])(${SECRET_NAME}|${SHORT_SECRET_NAME})\1(\s*:\s*)(\\?["'])((?:\\.|[^\\\n])*?)\4`, 'gi'),
+    (m, q1, name, sep, q2, value) => (!value || PLACEHOLDER.test(value) ? m : `${q1}${name}${q1}${sep}${q2}[redacted]${q2}`)],
+  [new RegExp(String.raw`\b(${SECRET_NAME})\s*[:=]\s*${VALUE}`, 'gi'), redactValue],
+  [new RegExp(String.raw`(?<![\w.-])(${SHORT_SECRET_NAME})\s*=\s*${VALUE}`, 'gi'), redactValue],
+  // Passwords in connection URLs: postgres://user:pw@host, mongodb+srv://user:pw@host, redis://:pw@host.
+  [/\b([a-z][a-z0-9+.-]*:\/\/)([^\s/:@]*):([^\s/@]+)@/gi, (m, scheme, user, pw) => (PLACEHOLDER.test(pw) ? m : `${scheme}[credentials]@`)],
   [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]'],
   [/(?<![\w.])(\+?\d{1,3}[\s.-])?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?![\w])/g, '[phone]'],
   [/(?:\/Users|\/home)\/[^\s/'"`]+/g, '~'],

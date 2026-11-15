@@ -45,7 +45,7 @@ If tools are listed only by name (deferred), load `whoami` and `list_automations
 If there is no such connector, stop and tell the person, in these words or close to them:
 
 > Your page talks to WaveX through a claude.ai connector named `wavex`. I can't find one in this session. To add it:
-> 1. In claude.ai, open Customize > Connectors.
+> 1. In claude.ai, open Settings > Connectors (some accounts show Customize > Connectors).
 > 2. Choose + Add, then Add custom connector.
 > 3. Name: `wavex` (lower case). Address: `https://ngvtgraldybxdbgkihfj.supabase.co/functions/v1/agent-mcp/connect`
 > 4. Choose Connect and sign in to WaveX.
@@ -58,7 +58,7 @@ Add one line when it applies:
 
 ## 2. Check who is signed in
 
-Call `whoami` on the `wavex` connector. If it is refused (`not_signed_in`, or an HTTP 401 asking to sign in), or `signed_in` is not true, stop and tell the person: "Your wavex connector is not signed in. In claude.ai, open Customize > Connectors, choose wavex, then Connect and sign in. Then start a new Claude Code session and type /wavex-shop again."
+Call `whoami` on the `wavex` connector. If it is refused (`not_signed_in`, or an HTTP 401 asking to sign in), or `signed_in` is not true, stop and tell the person: "Your wavex connector is not signed in. In claude.ai, open Settings > Connectors (some accounts show Customize > Connectors), choose wavex, then Connect and sign in. Then start a new Claude Code session and type /wavex-shop again."
 
 Otherwise tell the person the account the page will use: the first 8 characters of `user_id` only.
 
@@ -83,7 +83,7 @@ Tell the person, in short lines:
 - for each app the listings use (the `apps` in the catalog, matched to connector names without regard to case), one of:
   - "connected: your page can use it" (it has an entry you kept);
   - "connected: for now its steps run in your Claude chat" (`capabilities.json` has no entry for it);
-  - "not connected: to run listings that use it, add <app> in claude.ai under Customize > Connectors";
+  - "not connected: to run listings that use it, add <app> in claude.ai under Settings > Connectors (some accounts show Customize > Connectors)";
 - any WaveX tool you dropped, other than `review_queue` and `decide_review`: "Your wavex connector does not offer <tool> yet, so that part of the page stays off." For `list_my_sessions` and `get_my_session`, say instead: "Saving sessions to WaveX is not switched on yet, so your page lists only the sessions on this computer (step 7)."
 
 ## 4. Make the page file
@@ -135,7 +135,7 @@ First check what is there. This reads and changes nothing:
 node "<plugin>/servers/wavex-sessions/install.mjs" check
 ```
 
-It prints one JSON object with `config` (the Claude desktop app's settings file: `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows), `copy` (where the helper goes: `~/.wavex/wavex-sessions.mjs`) and `node` (the absolute path of Node.js that will run it).
+It prints one JSON object with `config` (the Claude desktop app's settings file: `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows), `copy` (where the helper goes: `~/.wavex/wavex-sessions.mjs`), `node` (the absolute path of Node.js that will run it; for Homebrew's Node.js it is the stable link, such as `/opt/homebrew/bin/node`, not a folder named after one version), `node_note` and `link_note` (each a sentence to pass on, or null), and `linked_to` (when the settings file is a link: the file it points to, which is the file that changes).
 
 - `node` is not found: say "To list your Claude Code sessions on your page, install Node.js 18 or newer from nodejs.org, then type /wavex-shop again." and stop.
 - `ok` is false: show its `message` in one line and stop. It names what to fix.
@@ -146,9 +146,11 @@ It prints one JSON object with `config` (the Claude desktop app's settings file:
 > - It reads your Claude Code session files on this computer.
 > - It removes keys, tokens, emails, phone numbers and file paths from what it shows.
 > - It is read-only. It changes nothing, and it sends nothing anywhere except to your own page, inside the Claude desktop app.
-> - To add it, I copy it to <copy>, back up <config>, and add one entry named wavex-sessions to that file. Your other servers and settings stay as they are.
+> - To add it, I copy it to <copy>, back up <config>, and add one entry named wavex-sessions to that file. Your other servers and settings stay as they are, and so does who can read the file.
 >
 > Add it? Say yes or no.
+
+When `link_note` is set, add it as one more line. When `node_note` is set, add it as one more line.
 
 Then stop and wait. Only a clear yes in this conversation adds it. On anything else, say "Okay, nothing changed. Type /wavex-shop again any time to add it." and stop.
 
@@ -161,6 +163,8 @@ After the yes:
    - the helper is at `copy`;
    - their old settings are backed up at `backup` (`backup` is null when there was no settings file before, or when only the helper file was updated);
    - one entry, `wavex-sessions`, is in `config`, and nothing else changed;
+   - `link_note`, when it is set: the settings file is a link, and the change went into `linked_to`;
+   - `node_note`, when it is set: if they upgrade or remove that Node.js, they type /wavex-shop again;
    - "Quit the Claude app fully and open it again (macOS: Claude > Quit Claude. Windows: right-click Claude in the tray, then Quit). Closing the window is not enough.";
    - after that, open the page in the Claude desktop app: the sessions card lists their sessions. It works only there, and only for them;
    - to remove it: delete the `wavex-sessions` entry from `config` (or put the backup back), restart the app, and delete `copy`.

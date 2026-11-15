@@ -16,7 +16,7 @@ The plugin adds no server to Claude Code. Both skills use your claude.ai connect
 
 ## 1. Connect WaveX in claude.ai
 
-1. In claude.ai, open Customize > Connectors.
+1. In claude.ai, open Settings > Connectors (some accounts show Customize > Connectors).
 2. Choose + Add, then Add custom connector.
 3. Name it `wavex` (lower case). Address: `https://ngvtgraldybxdbgkihfj.supabase.co/functions/v1/agent-mcp/connect`
 4. Choose Add, then Connect, and sign in or sign up to WaveX.
@@ -54,7 +54,7 @@ When a session has done a job you could sell, type:
 Nothing is posted until you say yes.
 
 - A listing can be free (0 credits a run) once WaveX switches free listings on.
-- To add an image, use Post a session on your WaveX page.
+- Images are not offered yet, so a listing goes up without one.
 - After posting, the listing is in review: WaveX's Claude checks it (L1) and test-runs it (L2), then a person at WaveX approves it (L3). Nobody can rent or buy it until then.
 
 ## 4. See your sessions on your page (optional)
@@ -66,7 +66,8 @@ Your WaveX page can list your Claude Code sessions, so you can turn one into a l
 - It removes keys, tokens, emails, phone numbers and file paths from what it shows.
 - It is read-only. It changes nothing, and it sends nothing anywhere except to your own page.
 - What `/wavex-shop` changes: it copies the helper to `~/.wavex/wavex-sessions.mjs`, backs up the app's settings file, and adds one entry, `wavex-sessions`, to it. Your other servers and settings stay as they are. The settings file is `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS and `%APPDATA%\Claude\claude_desktop_config.json` on Windows.
-- It needs Node.js 18 or newer.
+- If the settings file is a link, the file it points to is the one that changes. Who can read the settings file stays as it was.
+- It needs Node.js 18 or newer. If you upgrade Node.js and your page stops listing sessions, type `/wavex-shop` again.
 
 Then quit the Claude app fully and open it again (macOS: Claude > Quit Claude; Windows: right-click Claude in the tray, then Quit). Closing the window is not enough. The list shows only when you open your page in the Claude desktop app, and only to you.
 
@@ -81,6 +82,7 @@ In a Claude Code session, type `/wavex-post --save` or say "save this session to
 - A saved session is private to you. Reviewers, buyers and WaveX staff never see it, and nothing becomes a listing until you post one.
 - WaveX keeps your newest 200 saved sessions. Find them on your WaveX page under Post new.
 - If Claude says saving is not switched on yet, your wavex connector does not offer it yet. Nothing was saved.
+- To remove a saved session, say "remove my saved session <title>" in a Claude Code session. Claude finds it, shows it to you and asks before removing it. This works once your wavex connector offers removing saved sessions; until then Claude says so and removes nothing.
 
 ## Notes
 
