@@ -1,9 +1,13 @@
 {
   "name": "wavex",
-  "version": "0.2.0",
-  "description": "Get your own WaveX automations page in your claude.ai account (/wavex:wavex-shop), and post a repeatable job from your Claude Code session to the WaveX marketplace: draft, scrub, price, confirm, submit for review (/wavex:wavex-post).",
+  "version": "0.3.0",
+  "description": "Get your own WaveX automations page in your claude.ai account (/wavex:wavex-shop), and post a repeatable job from your Claude Code session to the WaveX marketplace: draft, scrub, price, confirm, submit for review (/wavex:wavex-post). Uses your claude.ai connector named wavex; the plugin adds no server of its own.",
   "author": {
     "name": "WaveX"
   },
-  "keywords": ["wavex", "automations", "marketplace"]
+  "keywords": [
+    "wavex",
+    "automations",
+    "marketplace"
+  ]
 }
