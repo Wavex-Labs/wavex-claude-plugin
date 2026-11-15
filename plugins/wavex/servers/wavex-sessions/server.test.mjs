@@ -42,6 +42,23 @@ test('scrub removes keys, tokens, emails, phones, local paths and reminders', ()
 
 test('scrub leaves plain numbers and dates alone', () => {
   assert.equal(scrub('version 1794763031 on 2026-11-15'), 'version 1794763031 on 2026-11-15');
+  assert.equal(scrub('3 files changed, +120 -340'), '3 files changed, +120 -340');
+});
+
+test('scrub: E.164, international and unseparated phone numbers', () => {
+  assert.equal(scrub('call me at +13055550142 today'), 'call me at [phone] today');
+  for (const p of ['+44 20 7946 0958', '+34 612 345 678', '+52 55 1234 5678', '+1 (305) 555-0142', '3055550142', '13055550142']) {
+    assert.equal(scrub(`call ${p}.`), 'call [phone].', p);
+  }
+  assert.equal(scrub('text me at +13055550142 or 3055550142'), 'text me at [phone] or [phone]');
+  assert.equal(scrub('+44 20 7946 0958 1234 is the line'), '[phone] is the line');
+});
+
+test('scrub: PGP private key blocks and a private key with no END line', () => {
+  const body = 'lQOYBF' + 'abcdefg';
+  assert.equal(scrub(`a -----BEGIN PGP PRIVATE KEY BLOCK-----\n${body}\n-----END PGP PRIVATE KEY BLOCK----- b`), 'a [private key] b');
+  assert.equal(scrub(`key:\n-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC`), 'key:\n[private key]');
+  assert.equal(scrub(`-----BEGIN OPENSSH PRIVATE KEY-----\n${body}\n-----END OPENSSH PRIVATE KEY-----\nafter`), '[private key]\nafter');
 });
 
 // Fake secrets are built from pieces so this file never holds one whole.
@@ -96,6 +113,17 @@ test('list_sessions: newest first, title from the session, everything scrubbed, 
   const all = JSON.stringify(r);
   for (const bad of ['jane.doe@acme.com', '555-0142', FAKE_KEY, FAKE_JWT, '/Users/someone', 'internal rules', 'secret output']) assert.ok(!all.includes(bad), `leaked: ${bad}`);
   assert.match(s.first_ask, /promo video/);
+});
+
+test('list_sessions scrubs E.164 and unseparated phone numbers end to end', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wavex-sessions-'));
+  made.push(root);
+  fs.mkdirSync(path.join(root, '-Users-someone-calls'));
+  const line = { type: 'user', cwd: '/Users/someone/calls', message: { role: 'user', content: 'text me at +13055550142 or 3055550142' } };
+  fs.writeFileSync(path.join(root, '-Users-someone-calls', '22222222-3333-4444-5555-666666666666.jsonl'), JSON.stringify(line) + '\n');
+  const r = await callTool('list_sessions', {}, root);
+  assert.equal(r.sessions[0].first_ask, 'text me at [phone] or [phone]');
+  assert.ok(!JSON.stringify(r).includes('5550142'));
 });
 
 test('list_sessions query filters, limit is bounded', async () => {

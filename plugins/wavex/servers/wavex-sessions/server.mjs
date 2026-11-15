@@ -32,7 +32,8 @@ const redactValue = (m, name, value) => {
 const RULES = [
   [/<system-reminder>[\s\S]*?<\/system-reminder>/g, ''],
   [/<(pasted_content|command-[a-z-]+|local-command-[a-z-]+)[^>]*>[\s\S]*?<\/\1>/g, ''],
-  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[private key]'],
+  // PEM, OpenSSH and PGP private keys, up to the END line, or to the end of the text when the END line is missing.
+  [/-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|$)/g, '[private key]'],
   [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, '[token]'],
   [/\b(sk|rk|pk)_(live|test)_[A-Za-z0-9]{8,}/g, '[key]'],
   [/\bsk-[A-Za-z0-9_-]{16,}/g, '[key]'],
@@ -52,7 +53,11 @@ const RULES = [
   // Passwords in connection URLs: postgres://user:pw@host, mongodb+srv://user:pw@host, redis://:pw@host.
   [/\b([a-z][a-z0-9+.-]*:\/\/)([^\s/:@]*):([^\s/@]+)@/gi, (m, scheme, user, pw) => (PLACEHOLDER.test(pw) ? m : `${scheme}[credentials]@`)],
   [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]'],
+  // International and E.164 numbers: +13055550142, +44 20 7946 0958, +34 612 345 678. 8 digits or more, so "+120 -340" stays.
+  [/(?<![\w.+])\+\d[\d\s().-]{6,22}\d(?![\w])/g, (m) => (m.replace(/\D/g, '').length >= 8 ? '[phone]' : m)],
   [/(?<![\w.])(\+?\d{1,3}[\s.-])?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?![\w])/g, '[phone]'],
+  // Unseparated US numbers: 3055550142, 13055550142. Area code and exchange start with 2-9, so a timestamp like 1794763031 stays.
+  [/(?<![\w.+])1?[2-9]\d{2}[2-9]\d{6}(?![\w]|[.,]\d)/g, '[phone]'],
   [/(?:\/Users|\/home)\/[^\s/'"`]+/g, '~'],
   [/[A-Z]:\\Users\\[^\s\\'"`]+/g, '~'],
 ];
