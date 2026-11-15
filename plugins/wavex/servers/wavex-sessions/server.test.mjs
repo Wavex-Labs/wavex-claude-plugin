@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { scrub, callTool, listSessionFiles } from './server.mjs';
+import { scrub, callTool, listSessionFiles, projectLabel } from './server.mjs';
 
 const SERVER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'server.mjs');
 const FAKE_KEY = 'sk_' + 'live_' + 'abcdefghijklmnop1234';
@@ -173,4 +173,196 @@ test('stdio: initialize, tools/list with read-only tools, tools/call', async () 
   assert.equal(replies.get(3).result.structuredContent.id, id);
   assert.equal(replies.get(4).result.isError, true);
   assert.equal(replies.get(4).result.structuredContent.reason, 'bad_input');
+});
+
+// ── The home folder and the username never show (PL1) ──
+// The made-up person is alex-smith. The name holds a dash on purpose: in Claude Code's dash form
+// (-Users-alex-smith-work-app) nothing marks where the name ends.
+const NAME = /alex|smith/i;
+const POSIX_HOME = '/Users/alex-smith';
+const WIN_HOME = 'C:\\Users\\alex-smith';
+
+test('projectLabel: folder -Users-alex-smith-work-app with home /Users/alex-smith gives a label with no username', () => {
+  const cases = [
+    ['-Users-alex-smith-work-app', '', 'app'],
+    ['-Users-alex-smith-work-app', '/Users/alex-smith/work/app', 'app'],
+    ['-Users-alex-smith', '', 'home'],
+    ['-Users-alex-smith', '/Users/alex-smith', 'home'],
+    ['-Users-alex-smith', '/Users/alex-smith/', 'home'],
+    ['-Users-alex-smith--claude', '/Users/alex-smith/.claude', '.claude'],
+    // The home folder in dash form also sits inside the name of a temp folder made for that person.
+    ['-private-tmp-claude-501--Users-alex-smith-s1-scratchpad', '', 'scratchpad'],
+    ['-private-tmp-claude-501--Users-alex-smith', '', 'home'],
+    // A folder named exactly like the username is not shown by name.
+    ['-Users-alex-smith-code-alex-smith', '/Users/alex-smith/code/alex-smith', 'project'],
+    ['-private-tmp-build', '', 'build'],
+    ['-private-tmp-build', '/private/tmp/build', 'build'],
+  ];
+  for (const [dir, cwd, want] of cases) {
+    const got = projectLabel(dir, cwd, POSIX_HOME);
+    assert.equal(got, want, `${dir} | ${cwd}`);
+    assert.doesNotMatch(got, NAME);
+  }
+});
+
+test('projectLabel: a home folder outside /Users and /home, and a home folder that is not this person\'s', () => {
+  assert.equal(projectLabel('-data-people-alex-smith-work-app', '', '/data/people/alex-smith'), 'app');
+  assert.equal(projectLabel('-data-people-alex-smith', '/data/people/alex-smith', '/data/people/alex-smith'), 'home');
+  // Someone else's home folder: where the name ends is unknown, so no part of it is used.
+  for (const [dir, cwd, want] of [
+    ['-Users-alex-smith', '', 'project'],
+    ['-Users-alex-smith-work-app', '', 'project'],
+    ['-Users-alex', '', 'home'],
+    ['-home-alex-smith-work', '', 'project'],
+    ['-private-tmp-claude-501--Users-alex-smith', '', 'project'],
+    ['-Users-alex-smith', '/Users/alex-smith', 'home'],
+    ['-home-alex-smith', '/home/alex-smith', 'home'],
+    ['-Users-alex-smith-work-app', '/Users/alex-smith/work/app', 'app'],
+  ]) {
+    const got = projectLabel(dir, cwd, '/Users/someone');
+    assert.equal(got, want, `${dir} | ${cwd}`);
+    assert.doesNotMatch(got, NAME);
+  }
+  // A longer name that only starts like this person's is someone else.
+  assert.equal(projectLabel('-Users-alexander-app', '', '/Users/alex'), 'project');
+  // No usable home folder (/, /root): the old rule still holds and nothing breaks.
+  assert.equal(projectLabel('-srv-app', '', '/'), 'app');
+  assert.equal(projectLabel('-root-app', '/root/app', '/root'), 'app');
+});
+
+test('projectLabel: Windows-style folder C--Users-alex-smith-work-app with home C:\\Users\\alex-smith', () => {
+  for (const [dir, cwd, want] of [
+    ['C--Users-alex-smith-work-app', '', 'app'],
+    ['c--Users-alex-smith-work-app', '', 'app'],
+    ['C--Users-alex-smith-work-app', 'C:\\Users\\alex-smith\\work\\app', 'app'],
+    ['C--Users-alex-smith', '', 'home'],
+    ['C--Users-alex-smith', 'C:\\Users\\alex-smith', 'home'],
+    ['C--Users-alex-smith', 'C:\\Users\\alex-smith\\', 'home'],
+  ]) {
+    const got = projectLabel(dir, cwd, WIN_HOME);
+    assert.equal(got, want, `${dir} | ${cwd}`);
+    assert.doesNotMatch(got, NAME);
+  }
+  // The same folders read on a computer with another home folder.
+  assert.equal(projectLabel('C--Users-alex-smith-work-app', '', '/Users/someone'), 'project');
+  assert.equal(projectLabel('C--Users-alex', '', '/Users/someone'), 'home');
+  assert.equal(projectLabel('D--Users-alex-smith', 'D:\\Users\\alex-smith', '/Users/someone'), 'home');
+});
+
+test('scrub: a home folder in dash form is replaced, in a path, alone and inside a longer name', () => {
+  assert.equal(scrub('see ~/.claude/projects/-Users-alex-smith-work-app/x.jsonl'), 'see ~/.claude/projects/~/x.jsonl');
+  assert.equal(scrub('scratch is /private/tmp/claude-501/-Users-alex-smith/s1/scratchpad'), 'scratch is /private/tmp/claude-501/~/s1/scratchpad');
+  assert.equal(scrub('cd "-Users-alex-smith-work-app" now'), 'cd "~" now');
+  assert.equal(scrub('on linux: -home-alex-smith-work-app'), 'on linux: ~');
+  assert.equal(scrub('on windows: C--Users-alex-smith-work-app and C:\\Users\\alex-smith\\work\\app'), 'on windows: ~ and ~\\work\\app');
+  assert.doesNotMatch(scrub('folder -private-tmp-claude-501--Users-alex-smith-s1-scratchpad'), NAME);
+});
+
+test('scrub: this person\'s own home folder is replaced wherever it lives, and the project name after it stays', async () => {
+  // The home folder comes from the process environment, so this runs scrub in a process of its own.
+  const run = (home, text) => {
+    const code = `import { scrub } from ${JSON.stringify(SERVER)}; process.stdout.write(scrub(${JSON.stringify(text)}));`;
+    return new Promise((resolve) => { let out = ''; const c = spawn(process.execPath, ['--input-type=module', '-e', code], { env: { ...process.env, HOME: home }, stdio: ['ignore', 'pipe', 'inherit'] }); c.stdout.on('data', (d) => { out += d; }); c.on('close', () => resolve(out)); });
+  };
+  assert.equal(await run(POSIX_HOME, 'log: ~/.claude/projects/-Users-alex-smith-work-app/x.jsonl, temp: -private-tmp-claude-501--Users-alex-smith-s1-scratchpad'),
+    'log: ~/.claude/projects/~-work-app/x.jsonl, temp: -private-tmp-claude-501-~-s1-scratchpad');
+  assert.equal(await run('/data/people/alex-smith', 'in /data/people/alex-smith/work/app and -data-people-alex-smith-work-app'), 'in ~/work/app and ~-work-app');
+  assert.equal(await run(WIN_HOME, 'in C:\\Users\\alex-smith\\work and C--Users-alex-smith-work'), 'in ~\\work and ~-work');
+  // A word that only holds the same letters stays; so does everything when the home folder names nobody (/root).
+  assert.equal(await run('/home/user', 'per-home-user settings in /home/user/app'), 'per-home-user settings in ~/app');
+  assert.equal(await run('/root', 'chown -root and /root/app'), 'chown -root and /root/app');
+});
+
+test('scrub: words that only look like a dash-form home folder stay', () => {
+  const keep = 'useradd --home-dir /srv/app, the Power-Users-Guide, at-home-care notes, a home-made tool, Users-first design, 3 -Users were added';
+  assert.equal(scrub(keep), keep);
+});
+
+// A sessions folder as it looks for alex-smith: a project, the home folder itself, a session with no folder recorded,
+// a temp folder, and text that names the home folder in every form.
+const HOME_IDS = ['aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000004'];
+function makeHomeRoot(win = false) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wavex-sessions-'));
+  made.push(root);
+  const dash = win ? 'C--Users-alex-smith' : '-Users-alex-smith';
+  const dir = (...parts) => (win ? [WIN_HOME, ...parts].join('\\') : [POSIX_HOME, ...parts].join('/'));
+  const put = (folder, id, lines, mtime) => {
+    fs.mkdirSync(path.join(root, folder), { recursive: true });
+    const file = path.join(root, folder, `${id}.jsonl`);
+    fs.writeFileSync(file, lines.map(l => JSON.stringify(l)).join('\n') + '\n');
+    fs.utimesSync(file, mtime, mtime);
+    return file;
+  };
+  const now = Date.now() / 1000;
+  put(`${dash}-work-app`, HOME_IDS[0], [
+    { type: 'user', cwd: dir('work', 'app'), message: { role: 'user', content: `Tidy the notes in ${dir('work', 'app', 'notes.md')}. The log is ~/.claude/projects/${dash}-work-app/log.jsonl and scratch is /private/tmp/claude-501/${dash}/s1/scratchpad` } },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: `Done. Wrote ${dir('work', 'app', 'out.md')} and read ${dash}-work-app.` }, { type: 'tool_use', name: 'Bash', input: {} }] } },
+    { type: 'user', message: { role: 'user', content: `Now copy it to ${dir()} and to ${dash}-work-app` } },
+    { type: 'custom-title', customTitle: `Notes for ${dash}-work-app` },
+  ], now);
+  put(dash, HOME_IDS[1], [{ type: 'user', cwd: dir(), message: { role: 'user', content: 'What is in my home folder?' } }], now - 10);
+  put(`${dash}-side-job`, HOME_IDS[2], [{ type: 'user', message: { role: 'user', content: 'No folder is recorded in this one' } }], now - 20);
+  const last = put(`-private-tmp-claude-501-${dash}-s1-scratchpad`, HOME_IDS[3], [{ type: 'user', message: { role: 'user', content: 'Scratch work' } }], now - 30);
+  return { root, last };
+}
+
+// Calls tools on a real server process, so the home folder comes from that process's own environment.
+async function callOverStdio(env, calls) {
+  const child = spawn(process.execPath, [SERVER], { env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'inherit'] });
+  let raw = '';
+  child.stdout.on('data', (d) => { raw += d; });
+  calls.forEach(([name, args], i) => child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: i + 1, method: 'tools/call', params: { name, arguments: args } }) + '\n'));
+  const got = () => (raw.endsWith('\n') ? raw.split('\n').filter(Boolean) : []);
+  const deadline = Date.now() + 5000;
+  while (got().length < calls.length && Date.now() < deadline) await new Promise(r => setTimeout(r, 25));
+  child.kill();
+  const byId = new Map(got().map(l => JSON.parse(l)).map(m => [m.id, m.result]));
+  return { raw, results: calls.map((_, i) => byId.get(i + 1)) };
+}
+const ALL_CALLS = [['list_sessions', {}], ...HOME_IDS.map(id => ['get_session_digest', { session_id: id }])];
+
+test('no output field of list_sessions or the digest holds the username (home /Users/alex-smith)', async () => {
+  const { root } = makeHomeRoot();
+  const { raw, results } = await callOverStdio({ HOME: POSIX_HOME, WAVEX_SESSIONS_ROOT: root }, ALL_CALLS);
+  assert.equal(results.filter(Boolean).length, ALL_CALLS.length, raw);
+  assert.doesNotMatch(raw, NAME);
+  const list = results[0].structuredContent;
+  assert.deepEqual(list.sessions.map(s => s.project), ['app', 'home', 'job', 'scratchpad']);
+  assert.equal(list.sessions[0].title, 'Notes for ~-work-app');
+  assert.match(list.sessions[0].first_ask, /~\/work\/app\/notes\.md.*projects\/~-work-app\/log\.jsonl.*claude-501\/~\/s1\/scratchpad/);
+  const d = results[1].structuredContent;
+  assert.equal(d.project, 'app');
+  assert.equal(d.asks.length, 2);
+  assert.match(d.results[0], /Wrote ~\/work\/app\/out\.md and read ~-work-app\./);
+  for (const r of results) for (const field of Object.values(r.structuredContent).flatMap(v => (Array.isArray(v) ? v : [v]))) assert.doesNotMatch(JSON.stringify(field), NAME);
+});
+
+test('no output field holds the username on a Windows-style home (C:\\Users\\alex-smith)', async () => {
+  const { root } = makeHomeRoot(true);
+  const { raw, results } = await callOverStdio({ HOME: WIN_HOME, WAVEX_SESSIONS_ROOT: root }, ALL_CALLS);
+  assert.equal(results.filter(Boolean).length, ALL_CALLS.length, raw);
+  assert.doesNotMatch(raw, NAME);
+  assert.deepEqual(results[0].structuredContent.sessions.map(s => s.project), ['app', 'home', 'job', 'scratchpad']);
+  assert.equal(results[1].structuredContent.project, 'app');
+});
+
+test('no output field holds the username when the sessions belong to another home folder', async () => {
+  // In this process the home folder is the test runner's own, so alex-smith is someone else.
+  for (const win of [false, true]) {
+    const { root } = makeHomeRoot(win);
+    const list = await callTool('list_sessions', {}, root);
+    assert.deepEqual(list.sessions.map(s => s.project), ['app', 'home', 'project', 'project']);
+    assert.doesNotMatch(JSON.stringify(list), NAME);
+    for (const id of HOME_IDS) assert.doesNotMatch(JSON.stringify(await callTool('get_session_digest', { session_id: id }, root)), NAME);
+  }
+});
+
+test('an error message from a file that cannot be read holds no home folder', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async () => {
+  const { root, last } = makeHomeRoot();
+  fs.chmodSync(last, 0o000);
+  const { raw, results } = await callOverStdio({ HOME: POSIX_HOME, WAVEX_SESSIONS_ROOT: root }, [['get_session_digest', { session_id: HOME_IDS[3] }]]);
+  fs.chmodSync(last, 0o600);
+  assert.equal(results[0].isError, true, raw);
+  assert.match(results[0].structuredContent.message, /permission denied/);
+  assert.doesNotMatch(raw, NAME);
 });

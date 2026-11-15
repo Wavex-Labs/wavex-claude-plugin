@@ -16,6 +16,22 @@ const HEAD_BYTES = 96 * 1024;
 const TAIL_BYTES = 384 * 1024;
 const DIGEST_CAP = 24 * 1024;
 
+// ── The home folder, and the username inside it, never leave this computer ──
+// Claude Code names each project folder after its path, with every character that is not a letter or a digit turned into a dash:
+// /Users/alex-smith/work/app -> -Users-alex-smith-work-app, C:\Users\alex\app -> C--Users-alex-app. So the folder name holds the username.
+const dashForm = (p) => String(p || '').replace(/[^A-Za-z0-9]/g, '-');
+const pathParts = (p) => String(p || '').split(/[\\/]+/).filter(Boolean);
+// A home folder deep enough to name a person (/Users/x, /home/x, C:\Users\x), without a trailing slash. Empty for / or /root.
+const personalHome = (home) => (pathParts(home).length >= 2 ? String(home).replace(/[\\/]+$/, '') : '');
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// A home folder in dash form, as a whole word or inside a longer name: a temp folder made for /Users/x is named -private-tmp-...--Users-x-....
+const dashHomeRe = (own, flags) => new RegExp(`(?<![A-Za-z0-9])${dashForm(own)}(?![A-Za-z0-9_])`, flags);
+const OWN_HOME = personalHome(HOME);
+const isHomeFolder = (p, own) => {
+  const t = String(p).replace(/[\\/]+$/, '');
+  return (!!own && t.toLowerCase() === own.toLowerCase()) || /^(?:\/Users|\/home)\/[^/]+$/.test(t) || /^[A-Za-z]:\\Users\\[^\\]+$/.test(t);
+};
+
 // ── Scrub: secrets, contact details and local paths never leave this machine's page unredacted ──
 // A value that only names a secret ({password}, {{token}}, <password>, ${DB_PASS}, $DB_PASS, ***, [key]) stays as written.
 const PLACEHOLDER = /^(?:\{\{?\s*[\w.-]+\s*\}?\}|<[\w .-]+>|\$\{[\w.-]+\}|\$[A-Z_][A-Z0-9_]*|\*+|\.{3}|…|\[[a-z ]+\])$/;
@@ -58,8 +74,17 @@ const RULES = [
   [/(?<![\w.])(\+?\d{1,3}[\s.-])?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?![\w])/g, '[phone]'],
   // Unseparated US numbers: 3055550142, 13055550142. Area code and exchange start with 2-9, so a timestamp like 1794763031 stays.
   [/(?<![\w.+])1?[2-9]\d{2}[2-9]\d{6}(?![\w]|[.,]\d)/g, '[phone]'],
+  // This person's own home folder, wherever it lives, as a path and in Claude Code's dash form.
+  ...(OWN_HOME ? [
+    [new RegExp(escapeRe(OWN_HOME) + String.raw`(?![\w-])`, 'gi'), '~'],
+    [dashHomeRe(OWN_HOME, 'gi'), '~'],
+  ] : []),
   [/(?:\/Users|\/home)\/[^\s/'"`]+/g, '~'],
   [/[A-Z]:\\Users\\[^\s\\'"`]+/g, '~'],
+  // Anyone else's home folder in dash form: -Users-name-project, C--Users-name-project, -home-name-project.
+  // A name can hold dashes itself, so where it ends is unknown and the whole word goes.
+  [/(?<![A-Za-z0-9])(?:[A-Za-z]-)?-Users-[A-Za-z0-9][A-Za-z0-9_-]*/g, '~'],
+  [/(?<![A-Za-z0-9-])-home-[A-Za-z0-9][A-Za-z0-9_-]*/g, '~'],
 ];
 export function scrub(text, max = 2000) {
   let s = String(text ?? '');
@@ -114,10 +139,24 @@ export function listSessionFiles(root = ROOT) {
   return files.sort((a, b) => b.mtime - a.mtime);
 }
 
-function projectLabel(dirName, cwd) {
-  if (cwd) return path.basename(cwd) || 'home';
-  const parts = dirName.split('-').filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : 'home';
+// The short name of the folder a session ran in. It never holds the home folder or the username:
+// the home folder itself is "home", and a folder whose name cannot be told apart from a username is "project".
+export function projectLabel(dirName, cwd, home = HOME) {
+  const own = personalHome(home);
+  let label;
+  if (cwd) {
+    label = isHomeFolder(cwd, own) ? 'home' : pathParts(cwd).pop() || 'home';
+  } else {
+    // Keep only what follows this person's home folder in dash form, wherever it sits in the name.
+    const dir = String(dirName || '');
+    const rest = own ? dir.split(dashHomeRe(own, 'i')).pop() : dir;
+    // Someone else's home folder: the name may hold dashes, so only a bare home folder can be told for sure.
+    const other = /(?<![A-Za-z0-9])(?:[A-Za-z]-)?-Users-(.*)$/.exec(rest) || /(?<![A-Za-z0-9-])-home-(.*)$/.exec(rest);
+    if (other) return other[1].includes('-') ? 'project' : 'home';
+    label = rest.split('-').filter(Boolean).pop() || 'home';
+  }
+  const user = pathParts(own).pop() || '';
+  return user && label.toLowerCase() === user.toLowerCase() ? 'project' : label;
 }
 
 export function summarize(entry) {
@@ -239,7 +278,8 @@ export function serve() {
           const data = await callTool(params?.name, params?.arguments || {});
           return send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data } });
         } catch (e) {
-          return send({ jsonrpc: '2.0', id, result: { isError: true, content: [{ type: 'text', text: e.message }], structuredContent: { refused: true, reason: e.code || 'error', message: e.message } } });
+          const message = scrub(e.message, 300); // a file error can carry the full path
+          return send({ jsonrpc: '2.0', id, result: { isError: true, content: [{ type: 'text', text: message }], structuredContent: { refused: true, reason: e.code || 'error', message } } });
         }
       }
       send({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } });
