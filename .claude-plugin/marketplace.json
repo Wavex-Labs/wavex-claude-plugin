@@ -1,0 +1,14 @@
+{
+  "name": "wavex-plugins",
+  "description": "WaveX plugins for Claude Code",
+  "owner": {
+    "name": "WaveX"
+  },
+  "plugins": [
+    {
+      "name": "wavex",
+      "source": "./plugins/wavex",
+      "description": "Post a job from your Claude Code session to the WaveX automations marketplace (/wavex:wavex-post), with the WaveX MCP server."
+    }
+  ]
+}

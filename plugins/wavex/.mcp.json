@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "wavex": {
+      "type": "http",
+      "url": "https://ngvtgraldybxdbgkihfj.supabase.co/functions/v1/agent-mcp/connect"
+    }
+  }
+}

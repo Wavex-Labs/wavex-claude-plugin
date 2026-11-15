@@ -1,0 +1,9 @@
+{
+  "name": "wavex",
+  "version": "0.1.0",
+  "description": "Post a repeatable job from your Claude Code session to the WaveX automations marketplace: draft, scrub, price, confirm, submit for review.",
+  "author": {
+    "name": "WaveX"
+  },
+  "keywords": ["wavex", "automations", "marketplace"]
+}
