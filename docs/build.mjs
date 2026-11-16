@@ -98,12 +98,16 @@ export function renderDynamicPage() {
 }
 export function renderCatalogPage(cards, site = {}) {
   const opts = { base: '', firstParty: site.firstParty || [], media: site.media || [] };
-  return head({ title: 'WaveX Automations', description: 'Jobs your Claude runs for you: replies, briefs, proposals, plans. Pick one, add WaveX to Claude, and run it.',
+  return head({ title: 'WaveX Automations', description: 'Productize your Claude Code sessions. Let users run, rent and purchase your successful code.',
     url: SITE_BASE, image: `${SITE_BASE}assets/og.png`, imageAlt: 'WaveX Automations', base: '', page: 'catalog' }) +
-    `<main><div class="wrap wide"><section class="intro"><p class="eyebrow">WaveX Automations</p><h1>Jobs your Claude runs for you</h1>` +
-    `<p class="summary">Pick a job. Add WaveX to Claude once. Then run it with your own Claude and your own apps.</p>` +
+    `<main><div class="wrap wide"><section class="intro"><p class="eyebrow">WaveX Automations</p><h1>Productize your Claude Code sessions</h1>` +
+    `<p class="summary">Turn your Claude Code sessions into money. Let users run, rent and purchase your successful code.</p>` +
+    `<ul class="claims" data-wx="claims"><li>The first application that lives inside a Claude Artifact</li>` +
+    `<li>The first and only marketplace for renting, purchasing and using Claude Code sessions</li>` +
+    `<li>WaveX Automations is the glue that connects all Claude sessions</li></ul>` +
     `<div class="cta"><a class="btn gold" data-wx="add-wavex" href="${esc(WX.installLink())}" target="_blank" rel="noopener">Add WaveX to Claude</a></div>` +
     `<p class="hint">Adding WaveX takes one confirm and one sign-in. Do it on a computer.</p></section>` +
+    `<h2 class="catalog-title">Jobs your Claude runs for you</h2>` +
     `<div id="catalog">${WX.renderCatalog(cards, opts)}</div>${NOTE}</div></main>\n` + foot('');
 }
 

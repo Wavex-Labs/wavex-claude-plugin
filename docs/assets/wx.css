@@ -108,7 +108,13 @@ th { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transfor
 .avatar { width: 44px; height: 44px; flex: none; border-radius: 50%; background: var(--navy); color: var(--gold); border: 1px solid var(--line-navy); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
 
 .intro { padding: 20px 0 8px; }
+.intro h1 { font-size: clamp(30px, 8vw, 52px); max-width: 18ch; text-wrap: balance; }
+.intro .summary { max-width: 46ch; }
 .intro .cta { max-width: 360px; }
+.claims { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 8px; max-width: 62ch; }
+.claims li { position: relative; padding-left: 22px; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.claims li::before { content: ""; position: absolute; left: 0; top: 0.45em; width: 10px; height: 10px; border-radius: 2px; background: var(--gold); }
+.catalog-title { margin: 28px 0 0; padding-top: 22px; border-top: 1px solid var(--line); }
 .grid { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 16px; grid-template-columns: 1fr; }
 .card a { display: flex; flex-direction: column; height: 100%; text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
 .card a:hover { box-shadow: 0 6px 24px var(--shade); }
