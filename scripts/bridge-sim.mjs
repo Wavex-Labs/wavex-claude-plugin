@@ -182,7 +182,9 @@ export function drain(store, { reader, label = 'cc-sim001', woken = false, withP
   // Step 2: is there Node, and what time is it? The newest session is the one being written now.
   const first = reader(['list_sessions', '--limit', '1']);
   const node = first.kind === 'ok' ? 'ok' : first.kind === 'no_node' ? 'no_node' : 'failed';
-  const ts = first.kind === 'ok' ? first.json.sessions[0]?.last_active : undefined;
+  // A time that is not from today is not a clock reading: it is left out, never made up.
+  const newest = first.kind === 'ok' ? first.json.sessions[0]?.last_active : undefined;
+  const ts = newest && Math.abs(Date.now() - Date.parse(newest)) < 24 * 3600 * 1000 ? newest : undefined;
   const stamp = { session: label, ...(ts && { ts }) };
   const ctx = { node, label, ts };
   const out = { answered: [], errors: [], skipped: [], left_pending: [], already_answered: [], node, preload: null, reply: null };

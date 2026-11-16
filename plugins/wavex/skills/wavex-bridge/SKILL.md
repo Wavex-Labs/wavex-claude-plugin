@@ -97,7 +97,7 @@ node "<plugin>/servers/wavex-sessions/server.mjs" --cli list_sessions --limit 1
 - The shell says `node` was not found (exit 127, "command not found" or "is not recognized"): there is no Node. Remember that for step 5: every operation that needs the reader gets the error `no_node`. Carry on, because `ping` and `run_steps` need no reader.
 - Anything else (exit 1, or no JSON): every operation that needs the reader gets the error `reader_failed`.
 
-Times: every `ts` and `last_seen` you write is an ISO 8601 UTC time such as `2026-11-15T23:59:00.000Z`. Take it from the clock, never from your head. The clock here is `last_active` of the one session this command printed: that session is the one you are in, and it was written a moment ago. Use that time for the whole run. If the command printed no session, or there is no Node, leave `ts` and `last_seen` out of what you write. The page then uses the time the row arrived.
+Times: every `ts` and `last_seen` you write is an ISO 8601 UTC time such as `2026-11-15T23:59:00.000Z`. Take it from the clock, never from your head. The clock here is `last_active` of the one session this command printed: that session is the one you are in, and it was written a moment ago. Use that time for the whole run. If the command printed no session, or there is no Node, or that time is not on today's date, leave `ts` and `last_seen` out of what you write. The page then uses the time the row arrived.
 
 Pick the session label once per conversation and reuse it: `cc-` plus 6 random lower-case letters and digits, for example `cc-k3v9qa`. It names this session on the page. Never use a folder name, a user name or a session id.
 
@@ -147,7 +147,7 @@ Check the row in this order. The first check that fails is the answer:
 2. `op` is not one of the seven below: error `unsupported_op`.
 3. The checks listed under the operation.
 
-Then do the operation and send one `batch` with two writes: `res/<id>` (pinned) and `req/<id>` with `status: "done"` (pinned). Set the request to `done` for an error answer too: `done` means handled.
+Then do the operation and send one `batch` with two writes: a `set` of `res/<id>` (pinned) and an `update` of `req/<id>` with `{ "status": "done" }` (pinned). Set the request to `done` for an error answer too: `done` means handled.
 
 A good answer:
 

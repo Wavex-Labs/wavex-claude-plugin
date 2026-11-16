@@ -188,6 +188,23 @@ test('without Node every row that needs the reader gets no_node; ping still answ
   assert.equal('last_seen' in store.get('bridge', 'status').data, false);
 });
 
+test('a newest session from another day is not a clock: the times are left out', () => {
+  const root = tmp('wavex-bridge-old-');
+  fs.mkdirSync(path.join(root, '-Users-someone-old'));
+  const file = path.join(root, '-Users-someone-old', `${ID(1)}.jsonl`);
+  fs.writeFileSync(file, JSON.stringify(user('An old job')) + '\n');
+  const lastWeek = Date.now() / 1000 - 7 * 24 * 3600;
+  fs.utimesSync(file, lastWeek, lastWeek);
+  const store = new Store(Object.fromEntries([req(R(1), 'list_sessions', {})]));
+  drain(store, { reader: makeReader({ sessionsRoot: root }), withPreload: true });
+  const res = store.get('res', R(1)).data;
+  assert.equal(res.state, 'done');
+  assert.equal(res.data.count, 1);
+  assert.equal('ts' in res, false);
+  assert.equal('last_seen' in store.get('bridge', 'status').data, false);
+  assert.equal('ts' in store.get('sessions', 'index').data, false);
+});
+
 test('preload (ruling R2): sessions/index holds the 30 newest with kind, and digests of the 8 newest that are not setup', () => {
   const store = new Store({
     'sessions/index/d/old-session-0001': { version: 3, data: { id: 'old-session-0001', title: 'A stale digest' } },
