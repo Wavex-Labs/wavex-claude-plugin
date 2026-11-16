@@ -181,12 +181,15 @@ const oneLine = (v, max) => String(v ?? '').replace(CONTROL, ' ').replace(/\s+/g
 const block = (v) => String(v ?? '').replace(/\r\n?/g, '\n').replace(CONTROL, '');
 
 // Claude Code runs a shell command it finds in a skill's text as !`...` or in a ```! block. A seller's text must never
-// reach that: a space goes between every "!" and a backtick or "$" next to it. Returns {text, count}.
+// reach that: a space goes between every "!" and a backtick or "$" next to it. Claude Code also puts the typed
+// arguments in place of $ARGUMENTS, $1 or ${...} before it looks for a command, so an argument that ends in "!" must
+// not land right before a backtick either: a space goes between such a name and a backtick. Returns {text, count}.
 export function disarm(text) {
   let count = 0;
   const out = String(text)
     .replace(/`!/g, () => { count++; return '` !'; })
-    .replace(/!(?=[`$])/g, () => { count++; return '! '; });
+    .replace(/!(?=[`$])/g, () => { count++; return '! '; })
+    .replace(/(\$(?:[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?|\d+|\{[^}\n`]*\}))`/g, (all, name) => { count++; return `${name} \``; });
   return { text: out, count };
 }
 
