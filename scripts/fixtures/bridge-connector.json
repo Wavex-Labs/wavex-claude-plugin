@@ -1,0 +1,59 @@
+{
+ "about": "Stands in for the person's wavex connector in scripts/bridge-sim.mjs. One owned automation. Made-up data.",
+ "download_automation": {
+  "reply-in-my-voice": {
+   "slug": "reply-in-my-voice",
+   "name": "Reply in My Voice",
+   "version": 2,
+   "mark": "wx-4F7Q-b81c",
+   "summary": "Paste an email. You get a reply in your own voice, saved as a draft.",
+   "definition": {
+    "inputs": [
+     {
+      "key": "email",
+      "label": "Paste the email you want to answer",
+      "type": "long",
+      "required": true,
+      "example": "Hi, can we move our call to Thursday at 3?"
+     },
+     {
+      "key": "length",
+      "label": "How long should the reply be?",
+      "type": "text",
+      "required": false,
+      "options": [
+       "Short",
+       "Medium",
+       "Long"
+      ],
+      "example": "Short"
+     }
+    ],
+    "steps": [
+     {
+      "id": "reply",
+      "kind": "prompt",
+      "title": "Write the reply",
+      "prompt": "Write a {{length}} reply to this email, in a warm and direct voice:\n\n{{email}}"
+     },
+     {
+      "id": "draft",
+      "kind": "app",
+      "app": "gmail",
+      "tool": "create_draft",
+      "title": "Save it as a Gmail draft",
+      "prompt": "Save this as a draft:\n\n{{steps.reply}}"
+     },
+     {
+      "id": "send",
+      "kind": "app",
+      "app": "gmail",
+      "tool": "send_message",
+      "title": "Send it",
+      "prompt": "Send this reply:\n\n{{steps.reply}}"
+     }
+    ]
+   }
+  }
+ }
+}
