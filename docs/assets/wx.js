@@ -144,7 +144,7 @@
   function coverHtml(slug, name, opts, cls) {
     var o = opts || {}, base = o.base || '';
     if (validSlug(slug) && (o.firstParty || []).indexOf(slug) !== -1) {
-      return '<div class="' + cls + '"><img src="' + esc(base + 'a/' + slug + '/cover.svg') + '" alt="" width="1200" height="630" loading="lazy" decoding="async"></div>';
+      return '<div class="' + cls + '"><img src="' + esc(base + 'a/' + slug + '/cover.svg') + '" alt="" width="1200" height="630"' + (cls === 'cover' ? '' : ' loading="lazy"') + ' decoding="async"></div>';
     }
     return '<div class="' + cls + ' tile" aria-hidden="true"><span class="tile-bar"></span><span class="tile-name">' + esc(cut(name, 60)) + '</span></div>';
   }
@@ -241,9 +241,10 @@
   }
   function renderMissing(slug, opts) {
     var base = (opts && opts.base) || '';
-    return '<article class="listing"><header class="hero"><h1>This automation is not listed</h1><p class="summary">' +
-      (validSlug(slug) ? 'Nothing is live under the name ' + esc(slug) + '.' : 'The link has no automation name. A link looks like a/?s=the-name.') +
-      ' Open the catalog and pick one.</p><div class="cta"><a class="btn gold" data-wx="to-catalog" href="' + esc(base || './') + '">See all automations</a></div></header></article>';
+    var why = validSlug(slug) ? 'Nothing is live under the name ' + esc(slug) + '. Check the spelling in the link, or pick one from the catalog.'
+      : !str(slug) ? 'This link has no automation name. Add one after ?s=, like a/?s=landing-page-teardown, or pick one from the catalog.'
+        : 'The name after ?s= can hold only small letters, digits and dashes. Fix the link, or pick one from the catalog.';
+    return '<article class="listing"><header class="hero"><h1>This automation is not listed</h1><p class="summary">' + why + '</p><div class="cta"><a class="btn gold" data-wx="to-catalog" href="' + esc(base || './') + '">See all automations</a></div></header></article>';
   }
 
   // The read. Asks the public read function first; when the call fails, or WaveX has no answer, it uses the bundled
