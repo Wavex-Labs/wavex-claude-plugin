@@ -1,0 +1,217 @@
+<title>WaveX bridge probe</title>
+<style>
+:root{--bg:#f6f6f3;--card:#ffffff;--ink:#15171c;--muted:#5b6270;--line:#d9dde3;--accent:#0b57d0;--on-accent:#ffffff;--ok:#0a7a3d;--bad:#b3261e;--code:#eef0f3}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#111317;--card:#1b1e24;--ink:#eceef2;--muted:#a3aab6;--line:#2e333c;--accent:#8ab4f8;--on-accent:#0b1b33;--ok:#6dd58c;--bad:#f2b8b5;--code:#252931}}
+:root[data-theme="dark"]{--bg:#111317;--card:#1b1e24;--ink:#eceef2;--muted:#a3aab6;--line:#2e333c;--accent:#8ab4f8;--on-accent:#0b1b33;--ok:#6dd58c;--bad:#f2b8b5;--code:#252931}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-wrap:anywhere}
+main{max-width:560px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:20px;margin:0 0 4px}
+h2{font-size:13px;margin:0 0 8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+p{margin:0 0 10px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:4px 0}
+.row .k{color:var(--muted);flex:none}
+.row .v{text-align:right}
+.ok{color:var(--ok)}
+.bad{color:var(--bad)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-weight:600;border-radius:10px;padding:10px 14px;min-height:44px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.main{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+button:disabled{opacity:.5;cursor:default}
+code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);border-radius:6px;padding:2px 6px}
+.paste{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.paste code{font-size:15px;padding:8px 10px}
+.req h3{font-size:15px;margin:0 0 6px}
+.req ul{margin:6px 0 0;padding-left:18px}
+</style>
+<main>
+  <h1>WaveX bridge probe</h1>
+  <p class="muted">A private test page. It checks that this page can reach your Claude Code session. It calls no WaveX tool.</p>
+
+  <section class="card" aria-label="State">
+    <h2>State</h2>
+    <div class="row"><span class="k">Page data</span><span class="v" id="s-db">checking</span></div>
+    <div class="row"><span class="k">Claude Code is listening</span><span class="v" id="s-can">checking</span></div>
+    <div class="row"><span class="k">Last session seen</span><span class="v" id="s-seen">none yet</span></div>
+    <div class="row"><span class="k">Auto-replies armed</span><span class="v" id="s-armed">not known</span></div>
+  </section>
+
+  <section class="card" aria-label="Ask">
+    <h2>Ask your Claude Code</h2>
+    <div class="btns">
+      <button class="main" id="b-ping" disabled>Ping</button>
+      <button id="b-list" disabled>Show my sessions</button>
+    </div>
+    <p class="muted" id="s-owner" style="margin:10px 0 0"></p>
+  </section>
+
+  <section class="card" aria-label="Paste">
+    <h2>No answer in 30 seconds?</h2>
+    <p>Open Claude Code and paste this once.</p>
+    <div class="paste"><code id="cmd">/wavex-bridge</code><button id="b-copy">Copy</button></div>
+  </section>
+
+  <div id="log" aria-live="polite"></div>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var T = { db: null, comments: null, thread: null, pokeOff: false, soft: 0, reqs: {}, order: [], tick: null };
+  var THREAD_KEY = 'wavex-probe-thread';
+  var CAN = { available: 'yes', no_session: 'no: no Claude Code session is watching this page', writers_only: 'no: only an editor of this page can ask', off: 'no: not offered here' };
+
+  function set(id, text, cls) { var e = $(id); e.textContent = text; e.className = 'v' + (cls ? ' ' + cls : ''); }
+  function code(e) { return String((e && e.code) || 'error').slice(0, 40); }
+  function sec(t0) { return Math.round((Date.now() - t0) / 100) / 10; }
+  function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
+
+  // "r" + base-36 time + 5 random characters. Made before any await.
+  function newId() {
+    var a = 'abcdefghijklmnopqrstuvwxyz0123456789', s = '';
+    for (var i = 0; i < 5; i++) s += a.charAt(Math.floor(Math.random() * 36));
+    return 'r' + Date.now().toString(36) + s;
+  }
+  // The comment holds a tag and an id only. Never the person's text.
+  function pokeText(id, op) {
+    return 'WaveX page request\n[wavex-bridge v=1 req=' + id + ' op=' + op + ']\nA row is waiting in this page\'s database (req/' + id + ').';
+  }
+
+  function render() {
+    var log = $('log');
+    log.textContent = '';
+    T.order.forEach(function (id) {
+      var r = T.reqs[id], box = el('section', null, 'card req');
+      box.appendChild(el('h3', r.op + ' · ' + id));
+      box.appendChild(el('div', 'Poke: ' + r.poke));
+      if (r.note) box.appendChild(el('div', r.note, 'bad'));
+      if (r.saved && r.done == null) {
+        box.appendChild(el('div', r.working == null ? 'Waiting ' + sec(r.t0) + ' s' : 'Working after ' + r.working + ' s'));
+        if (r.working == null && Date.now() - r.t0 > 30000) box.appendChild(el('div', 'Not picked up yet. Open Claude Code and paste /wavex-bridge.', 'bad'));
+      }
+      if (r.done != null) {
+        var x = r.answer || {};
+        box.appendChild(el('div', 'Working after ' + r.working + ' s'));
+        if (r.state === 'error') {
+          var err = x.error || {};
+          box.appendChild(el('div', 'Error after ' + r.done + ' s: ' + String(err.code || 'error').slice(0, 40), 'bad'));
+          box.appendChild(el('div', String(err.message || '').slice(0, 300)));
+        } else {
+          box.appendChild(el('div', 'Done after ' + r.done + ' s', 'ok'));
+          var d = x.data || {};
+          if (r.op === 'ping') box.appendChild(el('div', 'pong · playbook ' + String(d.playbook_version || '?').slice(0, 20)));
+          if (r.op === 'list_sessions') {
+            var list = Array.isArray(d.sessions) ? d.sessions : [];
+            box.appendChild(el('div', list.length + ' session' + (list.length === 1 ? '' : 's')));
+            var ul = el('ul');
+            list.slice(0, 5).forEach(function (s) { ul.appendChild(el('li', String(s.title || 'Untitled').slice(0, 120) + (s.kind === 'setup' ? ' (setup)' : ''))); });
+            box.appendChild(ul);
+          }
+        }
+      }
+      log.appendChild(box);
+    });
+    var open = T.order.some(function (id) { var r = T.reqs[id]; return r.saved && r.done == null; });
+    if (open && !T.tick) T.tick = setInterval(render, 1000);
+    if (!open && T.tick) { clearInterval(T.tick); T.tick = null; }
+  }
+
+  async function checkCan() {
+    var can = 'off';
+    try { if (T.comments) can = await T.comments.canSendToClaude(); } catch (e) { can = 'off'; }
+    set('s-can', CAN[can] || 'no', can === 'available' ? 'ok' : '');
+    return can;
+  }
+
+  async function ask(btn, op, args) {
+    var id = newId(), t0 = Date.now();
+    var r = T.reqs[id] = { id: id, op: op, t0: t0, poke: 'not sent yet', working: null, done: null, state: 'waiting', note: '', saved: false };
+    T.order.unshift(id);
+    render();
+    var anchorP = T.comments && !T.thread ? T.comments.anchorFor(btn).catch(function () { return null; }) : Promise.resolve(null);
+    try {
+      await T.db.doc('req/' + id).set({ id: id, v: 1, op: op, args: args, ts: t0, status: 'pending' });
+      r.saved = true;
+    } catch (e) {
+      r.note = 'The request was not saved (' + code(e) + '). Reload this page and click again.';
+      render();
+      return;
+    }
+    var can = await checkCan();
+    if (T.pokeOff) r.poke = 'not sent (off for this visit)';
+    else if (can !== 'available') r.poke = 'not sent (' + can + ')';
+    else {
+      try {
+        var anchor = await anchorP;
+        if (!T.thread && !anchor) throw { code: 'no_anchor' };
+        var out = await T.comments.sendToClaude(T.thread ? { threadId: T.thread, text: pokeText(id, op) } : { anchor: anchor, text: pokeText(id, op) });
+        T.thread = out.threadId;
+        try { localStorage.setItem(THREAD_KEY, T.thread); } catch (e) {}
+        T.soft = 0;
+        r.poke = 'sent';
+      } catch (e) {
+        var c = code(e);
+        r.poke = 'not sent (' + c + ')';
+        if (c === 'not_found') { T.thread = null; try { localStorage.removeItem(THREAD_KEY); } catch (x) {} }
+        else if (c === 'forbidden') T.pokeOff = true;
+        else if (c !== 'consent_required' && ++T.soft >= 2) T.pokeOff = true;
+      }
+    }
+    render();
+  }
+
+  function onRes(snap) {
+    snap.docs.forEach(function (d) {
+      var r = T.reqs[d.id], x = d.data() || {};
+      if (!r || r.done != null) return;
+      if (x.state === 'working' && r.working == null) r.working = sec(r.t0);
+      if (x.state === 'done' || x.state === 'error') {
+        r.done = sec(r.t0);
+        if (r.working == null) r.working = r.done;
+        r.state = x.state;
+        r.answer = x;
+      }
+    });
+    render();
+  }
+
+  async function start() {
+    var use = window.claude && window.claude.use ? window.claude.use : function () { return Promise.resolve(null); };
+    var got = await Promise.all([use('db'), use('comments'), use('user')]);
+    T.db = got[0]; T.comments = got[1];
+    var user = got[2], owner = false;
+    try { owner = user ? await user.isOwner() : false; } catch (e) {}
+    if (!T.db) { set('s-db', 'not available here', 'bad'); $('s-owner').textContent = 'Open this page in claude.ai, signed in as its owner.'; set('s-can', 'not known'); return; }
+    if (!owner) { set('s-db', 'owner only'); $('s-owner').textContent = 'Only the owner of this page can use it.'; set('s-can', 'not known'); return; }
+    try { T.thread = localStorage.getItem(THREAD_KEY) || null; } catch (e) {}
+
+    var stall = setTimeout(function () { set('s-db', 'cannot be reached yet', 'bad'); }, 10000);
+    T.db.collection('res').onSnapshot(function (snap) {
+      clearTimeout(stall);
+      set('s-db', 'connected', 'ok');
+      onRes(snap);
+    }, function (e) { clearTimeout(stall); set('s-db', 'not reachable (' + code(e) + ')', 'bad'); });
+    T.db.doc('bridge/status').onSnapshot(function (d) {
+      var x = d.exists ? d.data() || {} : null;
+      if (!x) return;
+      set('s-seen', String(x.session || 'a session').slice(0, 24) + (x.last_seen ? ' · ' + String(x.last_seen).slice(0, 19).replace('T', ' ') + ' UTC' : ''));
+      set('s-armed', x.armed === true ? 'yes' : 'no', x.armed === true ? 'ok' : '');
+    }, function () {});
+
+    await checkCan();
+    $('b-ping').disabled = false;
+    $('b-list').disabled = false;
+    $('b-ping').addEventListener('click', function () { ask($('b-ping'), 'ping', {}); });
+    $('b-list').addEventListener('click', function () { ask($('b-list'), 'list_sessions', { limit: 5 }); });
+  }
+
+  $('b-copy').addEventListener('click', function () {
+    var done = function () { $('b-copy').textContent = 'Copied'; setTimeout(function () { $('b-copy').textContent = 'Copy'; }, 1500); };
+    var byHand = function () { var s = window.getSelection(), g = document.createRange(); g.selectNodeContents($('cmd')); s.removeAllRanges(); s.addRange(g); $('b-copy').textContent = 'Selected: press copy'; };
+    try { navigator.clipboard.writeText('/wavex-bridge').then(done, byHand); } catch (e) { byHand(); }
+  });
+
+  start();
+})();
+</script>
