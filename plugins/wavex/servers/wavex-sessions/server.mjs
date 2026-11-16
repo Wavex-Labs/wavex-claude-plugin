@@ -2,6 +2,9 @@
 // wavex-sessions: a read-only MCP server (stdio) that lets the person's own WaveX page
 // see their recent Claude Code sessions, so they can turn one into a listing.
 // It never writes, never sends anything anywhere, and scrubs every string it returns.
+// The same two reads work from the command line, with no restart of Claude:
+//   node server.mjs --cli list_sessions --limit 50
+//   node server.mjs --cli get_session_digest --id <id>
 // Zero dependencies. Node 18+.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,7 +14,18 @@ import { pathToFileURL } from 'node:url';
 
 const VERSION = '0.1.0';
 const HOME = os.homedir();
-const ROOT = process.env.WAVEX_SESSIONS_ROOT || path.join(process.env.CLAUDE_CONFIG_DIR || path.join(HOME, '.claude'), 'projects');
+// Where the sessions are read from: the projects folder of the person who runs this, and no one else's.
+// WAVEX_SESSIONS_ROOT names a folder outright (the tests use it). Without it the folder is always inside the caller's own home:
+// CLAUDE_CONFIG_DIR counts only when it points inside that home, otherwise the reader falls back to ~/.claude/projects.
+export function sessionsRoot(env = process.env, home = HOME) {
+  if (env.WAVEX_SESSIONS_ROOT) return env.WAVEX_SESSIONS_ROOT;
+  const own = path.join(home, '.claude', 'projects');
+  if (!env.CLAUDE_CONFIG_DIR) return own;
+  const asked = path.resolve(env.CLAUDE_CONFIG_DIR, 'projects');
+  const inside = path.relative(home, asked);
+  return inside && inside !== '..' && !inside.startsWith('..' + path.sep) && !path.isAbsolute(inside) ? asked : own;
+}
+const ROOT = sessionsRoot();
 const HEAD_BYTES = 96 * 1024;
 const TAIL_BYTES = 384 * 1024;
 const DIGEST_CAP = 24 * 1024;
@@ -36,21 +50,43 @@ const isHomeFolder = (p, own) => {
 // A value that only names a secret ({password}, {{token}}, <password>, ${DB_PASS}, $DB_PASS, ***, [key]) stays as written.
 const PLACEHOLDER = /^(?:\{\{?\s*[\w.-]+\s*\}?\}|<[\w .-]+>|\$\{[\w.-]+\}|\$[A-Z_][A-Z0-9_]*|\*+|\.{3}|…|\[[a-z ]+\])$/;
 // Names that hold a secret: api_key, secret, token, password, passwd, private_key, with anything joined on (DB_PASSWORD, SECRET_KEY).
-const SECRET_NAME = String.raw`[A-Za-z0-9_]*(?:api[_-]?key|secret|token|passw(?:or)?d|private[_-]?key)[A-Za-z0-9_]*`;
+// Every rule scans a bounded stretch from each place it can start, so the scrub's time grows with the length of the text, not its square.
+// A name is at most 60 characters on each side of its secret word.
+const SECRET_NAME = String.raw`[A-Za-z0-9_]{0,60}(?:api[_-]?key|secret|token|passw(?:or)?d|private[_-]?key)[A-Za-z0-9_]{0,60}`;
 // Short names that hold a secret only as an env-style NAME=value: PASS, DB_PASS, PWD, AUTH, BASIC_AUTH.
-const SHORT_SECRET_NAME = String.raw`(?:[A-Za-z0-9]+_)*(?:pass|pwd|auth)(?:_[A-Za-z0-9]+)*`;
+// At most 6 words of 40 characters on each side.
+const SHORT_SECRET_NAME = String.raw`(?:[A-Za-z0-9]{1,40}_){0,6}(?:pass|pwd|auth)(?:_[A-Za-z0-9]{1,40}){0,6}`;
 const VALUE = String.raw`("[^"\n]*"|'[^'\n]*'|[^\s"',;&]+)`;
 const unquote = (v) => (/^(["']).*\1$/.test(v) ? v.slice(1, -1) : v);
 const redactValue = (m, name, value) => {
   const v = unquote(value);
   return v.length < 6 || PLACEHOLDER.test(v) ? m : `${name}=[redacted]`;
 };
+// Emails, found from each "@" outwards: the domain after it first (at most 255 characters), then the whole run before it.
+// One pass in code: the regex [A-Za-z0-9._%+-]+@... scanned a long run with no "@" again from each character in it. The part
+// before the "@" is taken whole, however long, so a long token glued to a host (https://<token>@host.com) goes with it.
+const EMAIL_DOMAIN = /[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,63}/y;
+const inEmailName = (c) => (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 46 || c === 95 || c === 37 || c === 43 || c === 45;
+function scrubEmails(s) {
+  const kept = [];
+  let from = 0;
+  for (let at = s.indexOf('@'); at !== -1; at = s.indexOf('@', at + 1)) {
+    EMAIL_DOMAIN.lastIndex = at + 1;
+    if (!EMAIL_DOMAIN.test(s)) continue;
+    let start = at;
+    while (start > from && inEmailName(s.charCodeAt(start - 1))) start--;
+    if (start === at) continue;
+    kept.push(s.slice(from, start), '[email]');
+    from = EMAIL_DOMAIN.lastIndex;
+  }
+  return from ? kept.join('') + s.slice(from) : s;
+}
+// Each rule is a pattern and what replaces it, or a function that does one pass over the text.
 const RULES = [
-  [/<system-reminder>[\s\S]*?<\/system-reminder>/g, ''],
-  [/<(pasted_content|command-[a-z-]+|local-command-[a-z-]+)[^>]*>[\s\S]*?<\/\1>/g, ''],
   // PEM, OpenSSH and PGP private keys, up to the END line, or to the end of the text when the END line is missing.
-  [/-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|$)/g, '[private key]'],
-  [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, '[token]'],
+  [/-----BEGIN [A-Z ]{0,40}PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END [A-Z ]{0,40}PRIVATE KEY(?: BLOCK)?-----|$)/g, '[private key]'],
+  // A JWT. Its first part has any length when the token starts a run of its own characters, and at most 1,024 when it follows a dash.
+  [/(?:(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}|\beyJ[A-Za-z0-9_-]{8,1024})\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, '[token]'],
   [/\b(sk|rk|pk)_(live|test)_[A-Za-z0-9]{8,}/g, '[key]'],
   [/\bsk-[A-Za-z0-9_-]{16,}/g, '[key]'],
   [/\b(ghp|gho|ghu|ghs|github_pat)_[A-Za-z0-9_]{16,}/g, '[key]'],
@@ -67,8 +103,9 @@ const RULES = [
   [new RegExp(String.raw`\b(${SECRET_NAME})\s*[:=]\s*${VALUE}`, 'gi'), redactValue],
   [new RegExp(String.raw`(?<![\w.-])(${SHORT_SECRET_NAME})\s*=\s*${VALUE}`, 'gi'), redactValue],
   // Passwords in connection URLs: postgres://user:pw@host, mongodb+srv://user:pw@host, redis://:pw@host.
-  [/\b([a-z][a-z0-9+.-]*:\/\/)([^\s/:@]*):([^\s/@]+)@/gi, (m, scheme, user, pw) => (PLACEHOLDER.test(pw) ? m : `${scheme}[credentials]@`)],
-  [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]'],
+  // A scheme is at most 32 characters. The user name and the password stop at a slash, so they never run into the next URL.
+  [/\b([a-z][a-z0-9+.-]{0,31}:\/\/)([^\s/:@]*):([^\s/@]+)@/gi, (m, scheme, user, pw) => (PLACEHOLDER.test(pw) ? m : `${scheme}[credentials]@`)],
+  scrubEmails,
   // International and E.164 numbers: +13055550142, +44 20 7946 0958, +34 612 345 678. 8 digits or more, so "+120 -340" stays.
   [/(?<![\w.+])\+\d[\d\s().-]{6,22}\d(?![\w])/g, (m) => (m.replace(/\D/g, '').length >= 8 ? '[phone]' : m)],
   [/(?<![\w.])(\+?\d{1,3}[\s.-])?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?![\w])/g, '[phone]'],
@@ -86,10 +123,64 @@ const RULES = [
   [/(?<![A-Za-z0-9])(?:[A-Za-z]-)?-Users-[A-Za-z0-9][A-Za-z0-9_-]*/g, '~'],
   [/(?<![A-Za-z0-9-])-home-[A-Za-z0-9][A-Za-z0-9_-]*/g, '~'],
 ];
+// Harness blocks that carry an attribute list: <pasted_content ...>, <command-name>, <local-command-stdout> and their kin.
+const BLOCK_TAGS = 'pasted_content|command-[a-z-]{1,40}|local-command-[a-z-]{1,40}';
+
+// Drops every block from an opening tag to the first closing tag of the same name after it. `names` is a regex alternation; with
+// `attrs` the opening tag runs on to its first ">", without it the tag is exactly "<name>". The closing tags are found once, up
+// front, so an opening tag with no closing tag costs a few lookups, not a scan to the end of the text (the regex this replaces,
+// <(name)[^>]*>[\s\S]*?</\1>, scanned the rest of the text again from every unclosed tag). Like that regex, an opening tag whose
+// own name has no closing tag gives back letters: <command-ab> is closed by </command-ab> first, else by </command-a>.
+function dropBlocks(s, names, attrs) {
+  const closes = new Map();
+  let shortest = Infinity;
+  for (const m of s.matchAll(new RegExp(`</(${names})>`, 'g'))) {
+    const c = closes.get(m[1]);
+    if (c) c.at.push(m.index);
+    else { closes.set(m[1], { at: [m.index], next: 0 }); shortest = Math.min(shortest, m[1].length); }
+  }
+  if (!closes.size) return s;
+  const open = new RegExp(`<(${names})${attrs ? '' : '>'}`, 'g'), kept = [];
+  let from = 0, gt = -1;
+  for (let m; (m = open.exec(s));) {
+    let body = open.lastIndex;
+    if (attrs) {
+      // The opening tag's own ">": the first one after the name. It only moves forward, so the text is searched for it once.
+      if (gt < body) gt = s.indexOf('>', body);
+      if (gt < 0) break;
+      body = gt + 1;
+    }
+    for (let name = m[1]; name.length >= shortest; name = name.slice(0, -1)) {
+      const c = closes.get(name);
+      if (!c) continue;
+      while (c.next < c.at.length && c.at[c.next] < body) c.next++;
+      if (c.next === c.at.length) continue;
+      kept.push(s.slice(from, m.index));
+      open.lastIndex = from = c.at[c.next] + name.length + 3;
+      break;
+    }
+  }
+  return from ? kept.join('') + s.slice(from) : s;
+}
+
+// Drops the spaces and tabs that sit right before a line break. One pass in code: the regex /[ \t]+\n/ scans a long run of
+// blanks again from each blank in it when no line break follows.
+function dropBlanksBeforeBreaks(s) {
+  const kept = [];
+  let from = 0;
+  for (let nl = s.indexOf('\n'); nl !== -1; nl = s.indexOf('\n', nl + 1)) {
+    let end = nl;
+    while (end > from && (s.charCodeAt(end - 1) === 32 || s.charCodeAt(end - 1) === 9)) end--;
+    if (end < nl) { kept.push(s.slice(from, end)); from = nl; }
+  }
+  return from ? kept.join('') + s.slice(from) : s;
+}
+
 export function scrub(text, max = 2000) {
   let s = String(text ?? '');
-  for (const [re, to] of RULES) s = s.replace(re, to);
-  s = s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  s = dropBlocks(dropBlocks(s, 'system-reminder', false), BLOCK_TAGS, true);
+  for (const rule of RULES) s = typeof rule === 'function' ? rule(s) : s.replace(rule[0], rule[1]);
+  s = dropBlanksBeforeBreaks(s).replace(/\n{3,}/g, '\n\n').trim();
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
 }
 
@@ -122,6 +213,16 @@ function assistantText(r) {
   return Array.isArray(c) ? c.filter(b => b?.type === 'text').map(b => b.text).join('\n') : '';
 }
 const isCommandNoise = (t) => /^\s*<(command|local-command)/.test(t) || /^\s*Caveat:/.test(t);
+
+// A session that only set WaveX up is marked kind "setup", so a page can keep it out of the way. Every other session is "work".
+// It is a setup session when the first thing the person typed is a /wavex- command (/wavex-shop ABC123, or /wavex:wavex-shop) or /plugin.
+// Claude Code stores a typed slash command as <command-name>/x</command-name>, with its arguments in a tag beside it.
+const SETUP_ASK = /^\/(?:wavex[-:]|plugin(?![\w-]))/;
+function firstTyped(text) {
+  if (!isCommandNoise(text)) return dropBlocks(text, 'system-reminder', false).trim();
+  return /<command-name>\s*(\/[^\s<]{1,80})/.exec(text.slice(0, 2000))?.[1] || '';
+}
+const kindOf = (typed) => (SETUP_ASK.test(typed) ? 'setup' : 'work');
 
 export function listSessionFiles(root = ROOT) {
   let dirs = [];
@@ -163,11 +264,12 @@ export function summarize(entry) {
   const head = jsonLines(readSlice(entry.file, 0, Math.min(HEAD_BYTES, entry.size)), false);
   const tailStart = Math.max(0, entry.size - TAIL_BYTES);
   const tail = tailStart > 0 ? jsonLines(readSlice(entry.file, tailStart, entry.size - tailStart), true) : head;
-  let title = '', cwd = '', firstAsk = '', lastAsk = '';
+  let title = '', cwd = '', firstAsk = '', lastAsk = '', typed = '';
   for (const r of [...head, ...tail]) {
     if (r.type === 'custom-title' && r.customTitle) title = r.customTitle;
     if (!cwd && r.cwd) cwd = r.cwd;
   }
+  for (const r of head) { const t = userText(r); if (t && (typed = firstTyped(t))) break; }
   for (const r of head) { const t = userText(r); if (t && !isCommandNoise(t)) { firstAsk = t; break; } }
   for (let i = tail.length - 1; i >= 0; i--) { const t = userText(tail[i]); if (t && !isCommandNoise(t)) { lastAsk = t; break; } }
   return {
@@ -178,6 +280,7 @@ export function summarize(entry) {
     size_kb: Math.round(entry.size / 1024),
     first_ask: scrub(firstAsk, 280),
     last_ask: scrub(lastAsk, 280),
+    kind: kindOf(typed),
   };
 }
 
@@ -186,7 +289,7 @@ export async function digest(id, root = ROOT) {
   const entry = listSessionFiles(root).find(f => f.id === id);
   if (!entry) throw Object.assign(new Error('No session with that id on this computer. Call list_sessions again.'), { code: 'not_found' });
   const asks = [], answers = [], tools = new Map(), prs = new Set();
-  let title = '', cwd = '', turns = 0;
+  let title = '', cwd = '', turns = 0, typed = '';
   const rl = readline.createInterface({ input: fs.createReadStream(entry.file, { encoding: 'utf8' }), crlfDelay: Infinity });
   for await (const line of rl) {
     if (!line) continue;
@@ -195,6 +298,7 @@ export async function digest(id, root = ROOT) {
     if (!cwd && r.cwd) cwd = r.cwd;
     if (r.type === 'pr-link' && r.prNumber) prs.add(`#${r.prNumber}`);
     const u = userText(r);
+    if (u && !typed) typed = firstTyped(u);
     if (u && !isCommandNoise(u)) { turns++; asks.push(u); }
     const a = assistantText(r);
     if (a) answers.push(a);
@@ -212,6 +316,7 @@ export async function digest(id, root = ROOT) {
     title: scrub(title || (asks[0] || '').split('\n')[0] || 'Untitled session', 120),
     project: scrub(projectLabel(entry.project, cwd), 60),
     last_active: new Date(entry.mtime).toISOString(),
+    kind: kindOf(typed),
     turns,
     asks: pick(asks, 4, 6).map(t => scrub(t, 1200)),
     results: pick(answers, 1, 5).map(t => scrub(t, 1600)),
@@ -230,7 +335,7 @@ export async function digest(id, root = ROOT) {
 const TOOLS = [
   {
     name: 'list_sessions',
-    description: 'Your recent Claude Code sessions on this computer, newest first: id, title, project folder name, last active time, and the first and last thing you asked (scrubbed). Read-only.',
+    description: 'Your recent Claude Code sessions on this computer, newest first: id, title, project folder name, last active time, the first and last thing you asked (scrubbed), and kind: "setup" for a session that only set WaveX up, "work" for the rest. Read-only.',
     inputSchema: { type: 'object', properties: { limit: { type: 'number', description: '1 to 50 (default 20).' }, query: { type: 'string', description: 'Only sessions whose title or asks contain this text.' } } },
     annotations: { readOnlyHint: true, openWorldHint: false, title: 'List my Claude Code sessions' },
   },
@@ -289,4 +394,40 @@ export function serve() {
   });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) serve();
+// ── Command line: the same two reads with no server and no restart ──
+//   node server.mjs --cli list_sessions [--limit 50] [--query text]
+//   node server.mjs --cli get_session_digest --id <id>
+// One JSON line on stdout. Exit 0: the same answer the tool gives. Exit 2: the call was refused, {"error":{"code","message"}}.
+const refuse = (code, message) => Object.assign(new Error(message), { code });
+export async function cli(argv, root = ROOT) {
+  try {
+    const [op, ...rest] = argv;
+    if (op !== 'list_sessions' && op !== 'get_session_digest') {
+      throw refuse('unsupported_op', 'The command after --cli must be list_sessions or get_session_digest. Example: --cli list_sessions --limit 50');
+    }
+    const opts = {};
+    for (let i = 0; i < rest.length; i += 2) {
+      const name = rest[i], value = rest[i + 1];
+      if (!['--limit', '--query', '--id'].includes(name)) throw refuse('bad_input', `${scrub(name, 40)} is not an option. Use --limit or --query with list_sessions, and --id with get_session_digest.`);
+      if (value === undefined) throw refuse('bad_input', `${name} has no value. Put the value right after ${name}.`);
+      opts[name.slice(2)] = value;
+    }
+    if (opts.limit !== undefined && !/^\d{1,4}$/.test(opts.limit)) throw refuse('bad_input', '--limit must be a number from 1 to 50.');
+    if (op === 'get_session_digest' && opts.id === undefined) throw refuse('bad_input', '--id is missing. Add --id and an id from list_sessions.');
+    const args = op === 'list_sessions'
+      ? { ...(opts.limit !== undefined && { limit: Number(opts.limit) }), ...(opts.query !== undefined && { query: opts.query }) }
+      : { session_id: opts.id };
+    return { code: 0, line: JSON.stringify(await callTool(op, args, root)) };
+  } catch (e) {
+    // A refusal names the option as it is typed here (--id), and a file error can carry the full path.
+    const message = scrub(String(e.message).replace('session_id', '--id'), 300);
+    const refused = ['unsupported_op', 'bad_input', 'not_found'].includes(e.code);
+    return { code: refused ? 2 : 1, line: JSON.stringify({ error: { code: refused ? e.code : 'error', message } }) };
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
+  const at = process.argv.indexOf('--cli');
+  if (at < 0) serve();
+  else cli(process.argv.slice(at + 1)).then(({ code, line }) => { process.exitCode = code; process.stdout.write(line + '\n'); });
+}
