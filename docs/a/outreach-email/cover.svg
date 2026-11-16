@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Cold Outreach Email">
+<rect width="1200" height="630" fill="#0B1B33"/>
+<rect x="800" y="110" width="290" height="196" rx="14" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<polyline points="818,130 945,222 1072,130" fill="none" stroke="#8DA2C4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="830,420 1060,420" fill="none" stroke="#2C4672" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="830" cy="420" r="22" fill="#D4AF37"/>
+<rect x="804" y="462" width="52" height="10" rx="5" fill="#2C4672"/>
+<circle cx="945" cy="420" r="22" fill="#1A3560" stroke="#8DA2C4" stroke-width="4"/>
+<rect x="919" y="462" width="52" height="10" rx="5" fill="#2C4672"/>
+<circle cx="1060" cy="420" r="22" fill="#1A3560" stroke="#8DA2C4" stroke-width="4"/>
+<rect x="1034" y="462" width="52" height="10" rx="5" fill="#2C4672"/>
+<text x="80" y="296" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Cold Outreach</text>
+<text x="80" y="376" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Email</text>
+</svg>

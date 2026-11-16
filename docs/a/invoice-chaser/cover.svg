@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Overdue Invoice Chaser">
+<rect width="1200" height="630" fill="#0B1B33"/>
+<rect x="800" y="80" width="280" height="300" rx="14" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="826" y="110" width="120" height="16" rx="8" fill="#8DA2C4"/>
+<rect x="826" y="142" width="180" height="10" rx="5" fill="#2C4672"/>
+<rect x="826" y="162" width="150" height="10" rx="5" fill="#2C4672"/>
+<rect x="826" y="202" width="228" height="34" rx="6" fill="#1A3560"/>
+<rect x="840" y="214" width="90" height="10" rx="5" fill="#2C4672"/>
+<rect x="1000" y="214" width="40" height="10" rx="5" fill="#8DA2C4"/>
+<rect x="826" y="246" width="228" height="34" rx="6" fill="#1A3560"/>
+<rect x="840" y="258" width="102" height="10" rx="5" fill="#2C4672"/>
+<rect x="1000" y="258" width="40" height="10" rx="5" fill="#8DA2C4"/>
+<rect x="826" y="290" width="228" height="34" rx="6" fill="#1A3560"/>
+<rect x="840" y="302" width="114" height="10" rx="5" fill="#2C4672"/>
+<rect x="1000" y="302" width="40" height="10" rx="5" fill="#8DA2C4"/>
+<circle cx="1080" cy="86" r="46" fill="#0B1B33" stroke="#D4AF37" stroke-width="8"/>
+<polyline points="1080,60 1080,86 1098,100" fill="none" stroke="#D4AF37" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="800" y="430" width="84" height="60" rx="8" fill="#1A3560"/>
+<polyline points="810,442 842,466 874,442" fill="none" stroke="#8DA2C4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="896" y="430" width="84" height="60" rx="8" fill="#2C4672"/>
+<polyline points="906,442 938,466 970,442" fill="none" stroke="#8DA2C4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="992" y="430" width="84" height="60" rx="8" fill="#D4AF37"/>
+<polyline points="1002,442 1034,466 1066,442" fill="none" stroke="#0B1B33" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="80" y="296" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Overdue Invoice</text>
+<text x="80" y="376" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Chaser</text>
+</svg>

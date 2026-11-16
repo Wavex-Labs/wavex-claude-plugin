@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Carousel Builder for Canva">
+<rect width="1200" height="630" fill="#0B1B33"/>
+<rect x="1000" y="215" width="150" height="200" rx="12" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="1118" y="235" width="14" height="8" rx="4" fill="#2C4672"/>
+<rect x="950" y="215" width="150" height="200" rx="12" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="1068" y="235" width="14" height="8" rx="4" fill="#2C4672"/>
+<rect x="900" y="215" width="150" height="200" rx="12" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="1018" y="235" width="14" height="8" rx="4" fill="#2C4672"/>
+<rect x="850" y="215" width="150" height="200" rx="12" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="968" y="235" width="14" height="8" rx="4" fill="#2C4672"/>
+<rect x="800" y="215" width="150" height="200" rx="12" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="918" y="235" width="14" height="8" rx="4" fill="#2C4672"/>
+<rect x="750" y="215" width="150" height="200" rx="12" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="868" y="235" width="14" height="8" rx="4" fill="#2C4672"/>
+<rect x="700" y="215" width="150" height="200" rx="12" fill="#1A3560" stroke="#2C4672" stroke-width="2"/>
+<rect x="718" y="245" width="114" height="16" rx="8" fill="#D4AF37"/>
+<rect x="718" y="273" width="80" height="16" rx="8" fill="#D4AF37"/>
+<rect x="718" y="325" width="96" height="8" rx="4" fill="#8DA2C4"/>
+<rect x="718" y="343" width="70" height="8" rx="4" fill="#8DA2C4"/>
+<rect x="718" y="381" width="40" height="12" rx="6" fill="#2C4672"/>
+<polyline points="1106,375 1106,421 1118,410 1127,429 1135,425 1126,407 1142,407 1106,375" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="80" y="296" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Carousel Builder</text>
+<text x="80" y="376" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">for Canva</text>
+</svg>

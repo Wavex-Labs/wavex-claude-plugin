@@ -1,0 +1,1 @@
+window.WX_SITE = {"first_party":["reply-in-my-voice","invoice-chaser","meeting-to-actions","landing-page-teardown","investor-update","proposal-builder","week-ahead-brief","waiting-on-me","meeting-prep-brief","carousel-to-canva","outreach-email","content-week","review-replies"],"media":[]};

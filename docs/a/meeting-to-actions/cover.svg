@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Meeting Notes to Action Plan">
+<rect width="1200" height="630" fill="#0B1B33"/>
+<rect x="690" y="170" width="170" height="290" rx="12" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<polyline points="712,214 748,204 786,218 832,206" fill="none" stroke="#8DA2C4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="714,258 756,266 794,252" fill="none" stroke="#2C4672" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="710,304 742,294 780,310 820,296 838,306" fill="none" stroke="#2C4672" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="716,350 760,342 802,356" fill="none" stroke="#8DA2C4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="712,394 750,404 788,388 828,400" fill="none" stroke="#2C4672" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="714,432 768,424" fill="none" stroke="#2C4672" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="876,315 922,315" fill="none" stroke="#D4AF37" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="906,299 922,315 906,331" fill="none" stroke="#D4AF37" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="940" y="190" width="200" height="250" rx="12" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="958" y="210" width="90" height="12" rx="6" fill="#8DA2C4"/>
+<rect x="958" y="240" width="164" height="50" rx="8" fill="#1A3560"/>
+<circle cx="980" cy="265" r="10" fill="#8DA2C4"/>
+<rect x="1000" y="254" width="74" height="8" rx="4" fill="#2C4672"/>
+<rect x="1000" y="269" width="48" height="8" rx="4" fill="#2C4672"/>
+<rect x="1086" y="259" width="24" height="12" rx="6" fill="#8DA2C4"/>
+<rect x="958" y="302" width="164" height="50" rx="8" fill="#1A3560"/>
+<circle cx="980" cy="327" r="10" fill="#8DA2C4"/>
+<rect x="1000" y="316" width="64" height="8" rx="4" fill="#2C4672"/>
+<rect x="1000" y="331" width="48" height="8" rx="4" fill="#2C4672"/>
+<rect x="1086" y="321" width="24" height="12" rx="6" fill="#8DA2C4"/>
+<rect x="958" y="364" width="164" height="50" rx="8" fill="#1A3560"/>
+<circle cx="980" cy="389" r="10" fill="#8DA2C4"/>
+<rect x="1000" y="378" width="54" height="8" rx="4" fill="#2C4672"/>
+<rect x="1000" y="393" width="48" height="8" rx="4" fill="#2C4672"/>
+<rect x="1086" y="383" width="24" height="12" rx="6" fill="#8DA2C4"/>
+<text x="80" y="296" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Meeting Notes</text>
+<text x="80" y="376" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">to Action Plan</text>
+</svg>
