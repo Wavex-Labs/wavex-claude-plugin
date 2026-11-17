@@ -10,7 +10,7 @@ You are working for the person in their own session. This skill publishes the Wa
 This skill's folder (the "Base directory for this skill" shown when it loaded) holds two files:
 
 - `page.html`: the finished WaveX page. Do not redesign or rewrite it. Only its title changes, in step 4.
-- `capabilities.json`: what the page asks for: the `wavex` and app connector tools it calls and the sessions helper (`mcp`), `sample`, `db` and `dictation`.
+- `capabilities.json`: what the page asks for: the `wavex` and app connector tools it calls and the sessions helper (`mcp`), `sample`, `db`, `dictation` and `room` (messages to the person's own Claude, only when they tap and confirm).
 
 The sessions helper is in this plugin, two folders up from this skill's folder: `servers/wavex-sessions/server.mjs` (the helper) and `servers/wavex-sessions/install.mjs` (adds it to the Claude desktop app). Step 7 uses them.
 
@@ -70,7 +70,7 @@ List the app connectors this session has: every claude.ai connector other than `
 
 Build the page's declaration from `capabilities.json`:
 
-- Keep `sample`, `db` and `dictation` exactly as written.
+- Keep `sample`, `db`, `dictation` and `room` exactly as written.
 - `mcp.servers`, the `wavex` entry: keep each tool that the person's `wavex` connector lists in this session, in the same order, and drop the others. A tool can be missing because this account cannot use it (the reviewer tools `review_queue` and `decide_review` belong to WaveX reviewers) or because WaveX has not switched it on yet.
 - `host:wavex-sessions`: the sessions helper on the person's own computer (step 7), not a claude.ai connector. Keep it exactly as written, installed or not. It answers only when the person opens the page in the Claude desktop app with the helper added.
 - Every other entry is an app connector the page can use, for example `Gmail` with `create_draft`. Keep it only if this session has a claude.ai connector with exactly that display name that lists every tool in the entry. Otherwise drop the whole entry.

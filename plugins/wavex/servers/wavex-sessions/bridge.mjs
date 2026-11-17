@@ -4,12 +4,13 @@
 //
 //   node bridge.mjs now                                         {"ts","label"}: the clock, and a label for this session
 //   node bridge.mjs parse-tag "<text>"                          is the exact tag line in this text?
+//   node bridge.mjs parse-data '<json>'                         is this the data of a page message (room) with the exact tag?
 //   node bridge.mjs validate-op <op>                            is this one of the listed operations?
 //   node bridge.mjs preload --limit 30 --digests 8 [--out <dir>] [--label cc-xxxxxx]
 //                                                               the rows for sessions/index and sessions/index/d/<id>
 //   node bridge.mjs make-skill <definition.json> --out <dir>    writes <dir>/wavex-<slug>/SKILL.md from a downloaded automation
 //
-// One JSON line on stdout. Exit 0: done. Exit 2: refused, {"error":{"code","message"}} (parse-tag and validate-op
+// One JSON line on stdout. Exit 0: done. Exit 2: refused, {"error":{"code","message"}} (parse-tag, parse-data and validate-op
 // print {"ok":false,"code","message"}). Exit 1: something broke. Text it is given is data: it never runs any of it.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -93,6 +94,33 @@ export function parseTag(text) {
   }
   const last = tags[tags.length - 1];
   return { ok: true, v: BRIDGE_VERSION, req: last.req, op: last.op, tags, exact: text.replace(/\r\n/g, '\n').trim() === pokeText(last.req, last.op) };
+}
+
+// The second wake form: a message the page sent over room. Its data is {label, wavex_bridge:1, tag, req, op, args,
+// connector, for_claude}. Only three things in it count: wavex_bridge is the number 1, tag is exactly the tag line
+// (one line, nothing around it), and req and op equal the tag's. Every other key (label, args, connector, for_claude,
+// anything extra) is ignored: it is never returned, never run and never obeyed. Like the tag, this is only a knock on the
+// door: the req/<id> row says what to do. Takes the parsed object or its JSON text. Returns the same shape as parseTag
+// plus form:'data', or {ok:false, code, message}.
+export const DATA_LIMIT = 64 * 1024;
+export function parseData(input) {
+  const no = (code, message, more) => ({ ok: false, code, message, ...more });
+  let data = input;
+  if (typeof input === 'string') {
+    if (!input) return no('no_tag', 'data: no data was given. Pass the page message data as JSON.');
+    if (input.length > DATA_LIMIT) return no('too_large', 'data: over 64 KB. Pass only the data of one page message.');
+    try { data = JSON.parse(input); } catch { return no('bad_data', 'data: this is not JSON. Pass the data of the page message.'); }
+  }
+  if (!isObject(data)) return no('bad_data', 'data: the page message data must be one JSON object.');
+  if (!Object.prototype.hasOwnProperty.call(data, 'wavex_bridge')) return no('no_tag', 'data: wavex_bridge is missing, so this is not a page request.');
+  if (data.wavex_bridge !== BRIDGE_VERSION) return no('unsupported_version', MESSAGES.unsupported_version);
+  const m = typeof data.tag === 'string' ? TAG.exec(data.tag) : null;
+  if (!m) return no('bad_tag', 'tag: the data does not hold the exact form [wavex-bridge v=1 req=<id> op=<op>] and nothing else.');
+  const [, req, op] = m;
+  if (!ALL_OPS.includes(op)) return no('unsupported_op', MESSAGES.unsupported_op, { req });
+  if (data.req !== req) return no('tag_mismatch', 'req: it is not the id in the tag. Nothing was done.', { req });
+  if (data.op !== op) return no('tag_mismatch', 'op: it is not the operation in the tag. Nothing was done.', { req });
+  return { ok: true, v: BRIDGE_VERSION, req, op, tags: [{ req, op }], form: 'data' };
 }
 
 // ── Operations and rows ──
@@ -392,6 +420,12 @@ export async function cli(argv, env = process.env) {
       const r = parseTag(free[0]);
       return say(r.ok ? 0 : 2, r);
     }
+    if (cmd === 'parse-data') {
+      only();
+      if (free.length !== 1) throw refuse('bad_input', 'parse-data takes one value: the data of the page message, as JSON in single quotes.');
+      const r = parseData(free[0]);
+      return say(r.ok ? 0 : 2, r);
+    }
     if (cmd === 'validate-op') {
       only();
       if (free.length !== 1) throw refuse('bad_input', 'validate-op takes one value: the operation name.');
@@ -413,7 +447,7 @@ export async function cli(argv, env = process.env) {
       if (free.length !== 1) throw refuse('bad_input', 'make-skill takes one file: the JSON the connector answered with. Example: make-skill automation.json --out ~/.claude/skills');
       return say(0, writeSkill(readDefinitionFile(expandHome(free[0])), expandHome(flags.out)));
     }
-    throw refuse('unsupported_op', 'The command must be now, parse-tag, validate-op, preload or make-skill.');
+    throw refuse('unsupported_op', 'The command must be now, parse-tag, parse-data, validate-op, preload or make-skill.');
   } catch (e) {
     if (e.refused) return say(2, { error: { code: e.code, message: e.message } });
     return say(1, { error: { code: 'error', message: 'bridge.mjs stopped on an error it did not expect.' } });

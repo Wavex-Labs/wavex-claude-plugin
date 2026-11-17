@@ -1,1 +1,1 @@
-{"comments":{},"db":{"rules":[{"path":"","read":"owner","write":"owner"}]},"user":{}}
+{"comments":{},"room":{},"db":{"rules":[{"path":"","read":"owner","write":"owner"}]},"user":{}}

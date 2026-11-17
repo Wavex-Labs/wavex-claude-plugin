@@ -231,7 +231,8 @@ function doOp(row, store, reader, ctx, progress) {
 // Steps 2 to 6 for one page.
 // opts: { reader, label, woken, withPreload, connector, skillsDir, apps }.
 // woken: true = an artifact-auto-react notification (no second reply, the thread is resolved);
-//        'comment' = a comment that came with its text and no automatic reply (one reply line, then resolved).
+//        'comment' = a comment that came with its text and no automatic reply (one reply line, then resolved);
+//        'data' = a page message sent over room: no thread, no reply, nothing to resolve; armed is still true.
 export function drain(store, { reader, label = 'cc-sim001', woken = false, withPreload = false, connector, skillsDir, apps = [] } = {}) {
   // Step 2: is there Node, and what time is it? The clock is the "now" command. Without Node the times are left out.
   const first = reader.bridge(['now']);
@@ -298,7 +299,7 @@ export function drain(store, { reader, label = 'cc-sim001', woken = false, withP
 
   // Step 6. Woken by an artifact-auto-react notification: the automatic reply is already there, so no second reply;
   // the thread is resolved. A comment that came with its text gets one line, numbers only, and is resolved too.
-  if (woken) out.thread = 'resolved';
+  if (woken && woken !== 'data') out.thread = 'resolved';
   if (woken === 'comment') {
     const n = out.answered.length, m = out.errors.length;
     out.reply = !n && !m ? 'Nothing was waiting on your page.'
@@ -306,6 +307,19 @@ export function drain(store, { reader, label = 'cc-sim001', woken = false, withP
       : `Done. ${n} request(s) answered on your page.`;
   }
   return out;
+}
+
+// The second wake form (SKILL.md, "A page message (data)"): a message the page sent over room. The session builds a
+// compact JSON from the four checked values only, asks bridge.mjs parse-data, and drains only when it says yes.
+// Nothing else in the message (label, args, for_claude, extra keys) reaches a command. Returns {knock:false} or {knock:true, ...drain}.
+export function wakeByData(store, message, opts = {}) {
+  const m = message && typeof message === 'object' && !Array.isArray(message) ? message : {};
+  const tag = typeof m.tag === 'string' ? TAG.exec(m.tag) : null;
+  if (m.wavex_bridge !== 1 || !tag || m.req !== tag[1] || m.op !== tag[2]) return { knock: false };
+  const reader = opts.reader;
+  const checked = reader.bridge(['parse-data', JSON.stringify({ wavex_bridge: 1, tag: m.tag, req: tag[1], op: tag[2] })]);
+  if (checked.kind !== 'ok' || !checked.json.ok) return { knock: false };
+  return { knock: true, ...drain(store, { ...opts, woken: 'data' }) };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
