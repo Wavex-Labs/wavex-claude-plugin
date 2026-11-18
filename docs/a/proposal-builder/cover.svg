@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Client Proposal Builder">
+<rect width="1200" height="630" fill="#0B1B33"/>
+<rect x="760" y="70" width="340" height="490" rx="14" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<rect x="792" y="106" width="150" height="16" rx="8" fill="#8DA2C4"/>
+<rect x="792" y="136" width="220" height="10" rx="5" fill="#2C4672"/>
+<rect x="792" y="156" width="180" height="10" rx="5" fill="#2C4672"/>
+<rect x="792" y="200" width="276" height="36" rx="6" fill="#1A3560"/>
+<rect x="806" y="213" width="110" height="10" rx="5" fill="#2C4672"/>
+<rect x="1008" y="213" width="46" height="10" rx="5" fill="#8DA2C4"/>
+<rect x="792" y="246" width="276" height="36" rx="6" fill="#1A3560"/>
+<rect x="806" y="259" width="124" height="10" rx="5" fill="#2C4672"/>
+<rect x="1008" y="259" width="46" height="10" rx="5" fill="#8DA2C4"/>
+<rect x="792" y="292" width="276" height="36" rx="6" fill="#1A3560"/>
+<rect x="806" y="305" width="138" height="10" rx="5" fill="#2C4672"/>
+<rect x="1008" y="305" width="46" height="10" rx="5" fill="#8DA2C4"/>
+<rect x="792" y="346" width="276" height="48" rx="8" fill="#D4AF37"/>
+<rect x="806" y="365" width="76" height="10" rx="5" fill="#0B1B33"/>
+<polyline points="1016,371 1027,381 1048,359" fill="none" stroke="#0B1B33" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="792" y="430" width="200" height="10" rx="5" fill="#2C4672"/>
+<rect x="792" y="450" width="160" height="10" rx="5" fill="#2C4672"/>
+<rect x="792" y="494" width="96" height="28" rx="14" fill="#2C4672"/>
+<text x="80" y="296" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Client Proposal</text>
+<text x="80" y="376" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Builder</text>
+</svg>

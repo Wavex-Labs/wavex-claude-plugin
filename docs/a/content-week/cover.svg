@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Content Week Planner">
+<rect width="1200" height="630" fill="#0B1B33"/>
+<rect x="800" y="86" width="150" height="14" rx="7" fill="#8DA2C4"/>
+<rect x="800" y="130" width="64" height="64" rx="10" fill="#1A3560"/>
+<rect x="814" y="170" width="36" height="8" rx="4" fill="#2C4672"/>
+<circle cx="820" cy="152" r="7" fill="#8DA2C4"/>
+<rect x="876" y="130" width="64" height="64" rx="10" fill="#1A3560"/>
+<rect x="890" y="170" width="36" height="8" rx="4" fill="#2C4672"/>
+<circle cx="896" cy="152" r="7" fill="#8DA2C4"/>
+<rect x="952" y="130" width="64" height="64" rx="10" fill="#1A3560"/>
+<rect x="966" y="170" width="36" height="8" rx="4" fill="#2C4672"/>
+<circle cx="972" cy="152" r="7" fill="#8DA2C4"/>
+<rect x="1028" y="130" width="64" height="64" rx="10" fill="#1A3560"/>
+<rect x="1042" y="170" width="36" height="8" rx="4" fill="#2C4672"/>
+<circle cx="1048" cy="152" r="7" fill="#8DA2C4"/>
+<rect x="800" y="206" width="64" height="64" rx="10" fill="#1A3560"/>
+<rect x="814" y="246" width="36" height="8" rx="4" fill="#2C4672"/>
+<circle cx="820" cy="228" r="7" fill="#8DA2C4"/>
+<rect x="876" y="206" width="64" height="64" rx="10" fill="#1A3560"/>
+<rect x="890" y="246" width="36" height="8" rx="4" fill="#2C4672"/>
+<circle cx="896" cy="228" r="7" fill="#8DA2C4"/>
+<rect x="952" y="206" width="64" height="64" rx="10" fill="#D4AF37"/>
+<rect x="966" y="246" width="36" height="8" rx="4" fill="#0B1B33"/>
+<circle cx="972" cy="228" r="7" fill="#0B1B33"/>
+<rect x="800" y="320" width="292" height="12" rx="6" fill="#2C4672"/>
+<rect x="800" y="344" width="210" height="12" rx="6" fill="#2C4672"/>
+<rect x="800" y="386" width="120" height="34" rx="17" fill="#132A4D" stroke="#2C4672" stroke-width="2"/>
+<text x="80" y="296" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Content Week</text>
+<text x="80" y="376" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#FFFFFF">Planner</text>
+</svg>
