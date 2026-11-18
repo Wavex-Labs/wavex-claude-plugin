@@ -18,7 +18,7 @@ The plugin adds no server to Claude Code. Both skills use your claude.ai connect
 
 1. In claude.ai, open Settings > Connectors (some accounts show Customize > Connectors).
 2. Choose + Add, then Add custom connector.
-3. Name it `wavex` (lower case). Address: `https://ngvtgraldybxdbgkihfj.supabase.co/functions/v1/agent-mcp/connect`
+3. Name it `wavex` (lower case). Address: `https://app.wavexcard.com/mcp/connect`
 4. Choose Add, then Connect, and sign in or sign up to WaveX.
 5. Start a new Claude Code session.
 

@@ -5,7 +5,7 @@
 (function (root) {
   'use strict';
 
-  var CONNECT_URL = 'https://ngvtgraldybxdbgkihfj.supabase.co/functions/v1/agent-mcp/connect';
+  var CONNECT_URL = 'https://app.wavexcard.com/mcp/connect';
   var INSTALL_LINK = 'https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=wavex&connectorUrl=' +
     encodeURIComponent(CONNECT_URL);
   var SLUG_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;

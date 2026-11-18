@@ -47,7 +47,7 @@ If there is no such connector, stop and tell the person, in these words or close
 > Your page talks to WaveX through a claude.ai connector named `wavex`. I can't find one in this session. To add it:
 > 1. In claude.ai, open Settings > Connectors (some accounts show Customize > Connectors).
 > 2. Choose + Add, then Add custom connector.
-> 3. Name: `wavex` (lower case). Address: `https://ngvtgraldybxdbgkihfj.supabase.co/functions/v1/agent-mcp/connect`
+> 3. Name: `wavex` (lower case). Address: `https://app.wavexcard.com/mcp/connect`
 > 4. Choose Connect and sign in to WaveX.
 > 5. Start a new Claude Code session and type /wavex-shop again.
 

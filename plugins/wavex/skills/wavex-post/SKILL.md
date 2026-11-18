@@ -46,7 +46,7 @@ If more than one server has `submit_automation`, call `whoami` on each in step 2
 If no server lists `submit_automation`, stop and tell the creator:
 
 - In Claude Code, run `/mcp`, pick the WaveX server, and choose Reconnect (or Authenticate if it asks). A server that shows `whoami` but not `submit_automation` has an old tool list; Reconnect refreshes it.
-- Or add the WaveX connector in claude.ai under Settings > Connectors (some accounts show Customize > Connectors) with this URL, sign in, and start a new session: `https://ngvtgraldybxdbgkihfj.supabase.co/functions/v1/agent-mcp/connect`
+- Or add the WaveX connector in claude.ai under Settings > Connectors (some accounts show Customize > Connectors) with this URL, sign in, and start a new session: `https://app.wavexcard.com/mcp/connect`
 
 ## 2. Check who is posting
 

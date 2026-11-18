@@ -15,7 +15,7 @@ const WX = loadWX();
 const SNAP = JSON.parse(fs.readFileSync(path.join(HERE, 'assets', 'snapshot.json'), 'utf8'));
 const SLUGS = SNAP.cards.map((c) => c.slug);
 const SITE = { firstParty: SLUGS, media: [] };
-const CONNECT = 'https://ngvtgraldybxdbgkihfj.supabase.co/functions/v1/agent-mcp/connect';
+const CONNECT = 'https://app.wavexcard.com/mcp/connect';
 const TWO = ['landing-page-teardown', 'reply-in-my-voice'];
 
 const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#96;/g, '`').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
