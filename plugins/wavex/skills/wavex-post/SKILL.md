@@ -133,13 +133,13 @@ Use the creator's own figure instead only if they gave one. Then show the creato
 - the sample input, the sample output in full, and the FAQ;
 - prices: `credit_price` per run, `price_rent` for a 30-day rental of up to 300 runs, `price_own` to buy it;
 - for a free listing, say: "Free: 0 credits a run. It cannot be rented or bought.";
-- what they earn, worked out the way WaveX's `mkt_creator_share` does, with the compute cost of 5 credits:
-  - each paid run: floor((credit_price - 5) x 0.70), never below 0;
-  - each rental: floor((price_rent - 5) x 0.70);
+- what they earn. Say this sentence word for word: "You keep 80% of the price after the first 5 credits, on runs paid with bought credits." Then work it out the way WaveX's `mkt_creator_share` does, with the compute cost of 5 credits:
+  - each paid run: floor((credit_price - 5) x 0.80), never below 0;
+  - each rental: floor((price_rent - 5) x 0.80);
   - each purchase: floor(price_own x 0.80);
   - only the part a buyer pays with purchased credits counts (gifted or welcome credits earn nothing), and their own runs and purchases earn nothing. Earnings collect in their WaveX "Automation earnings" account.
   - Payout of earnings is not switched on yet. Tell the creator plainly that these earnings cannot be cashed out today.
-  - Example: credit_price 50, rent 400, own 1250 earns 31 per run, 276 per rental, 1000 per purchase.
+  - Example: credit_price 50, rent 400, own 1250 earns 36 per run, 316 per rental, 1000 per purchase.
   - A free listing earns 0: nothing per run, and it is never rented or bought. Tell the creator plainly.
 - what you removed or generalized in step 4;
 - the account it will post as (first 8 characters).
